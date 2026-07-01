@@ -73,6 +73,11 @@
             <input id="intent" type="search" placeholder="What are you trying to build? (intent search — find reuse candidates)" autocomplete="off" />
             <button id="intent-clear" type="button" title="Clear">✕</button>
           </div>
+          <div class="samples-bar">
+            <span class="muted small" id="samples-note">Sample org loaded — 25 APIs across 2 orgs, with built-in duplication.</span>
+            <button id="reload-samples" type="button" title="Reset the inventory to the 25 built-in sample APIs">Reload samples</button>
+            <button id="clear-samples" type="button" title="Remove the sample APIs (keeps anything you added)">Clear samples</button>
+          </div>
           <p class="notice" id="intent-note" hidden></p>
           <ul id="inventory-list" class="store-list"></ul>
         </div>

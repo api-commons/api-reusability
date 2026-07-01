@@ -151,3 +151,10 @@ ul.conso li { margin: 0.25rem 0; }
 .footer { display: flex; justify-content: center; gap: 1.5rem; align-items: center; height: 52px; border-top: 1px solid var(--line); background: #181818; }
 .footer a { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
 .footer a:hover { color: var(--accent); }
+
+/* samples control bar */
+.samples-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); background: #202020; }
+.samples-bar .muted { flex: 1; min-width: 0; }
+.samples-bar button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.samples-bar button:hover:not(:disabled) { border-color: var(--accent); }
+.samples-bar button:disabled { opacity: 0.45; cursor: default; }

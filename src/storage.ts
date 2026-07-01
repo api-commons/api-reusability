@@ -3,7 +3,7 @@
 // spotlight-discovery / spotlight-validator.
 
 export interface Provenance {
-  source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'har' | 'helper' | 'url' | 'manual';
+  source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'har' | 'helper' | 'url' | 'manual' | 'sample';
   url?: string; // where it was found / its source URL
   repo?: string; // owner/repo (or workspace/repo)
   path?: string; // file path in the repo
@@ -108,6 +108,14 @@ export function upsertApi(a: ApiRecord) {
 }
 export const removeApi = (id: string) => saveInventory(loadInventory().filter((a) => a.id !== id));
 export const getApi = (id: string) => loadInventory().find((a) => a.id === id);
+
+// Sample-data helpers. Sample records carry provenance.source === 'sample' so
+// they can be cleared or reloaded independently of anything the user adds.
+const SEEDED = 'api-reusability:seeded';
+export const hasSamples = () => loadInventory().some((a) => a.provenance.source === 'sample');
+export const clearSamples = () => saveInventory(loadInventory().filter((a) => a.provenance.source !== 'sample'));
+export const wasSeeded = () => { try { return localStorage.getItem(SEEDED) === '1'; } catch { return false; } };
+export const markSeeded = () => { try { localStorage.setItem(SEEDED, '1'); } catch { /* */ } };
 
 // Reuse ledger
 export const loadLedger = (): ReuseEvent[] => read<ReuseEvent[]>(LEDGER, []);

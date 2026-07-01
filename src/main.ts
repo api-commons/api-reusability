@@ -5,8 +5,10 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import {
   loadInventory, upsertApi, removeApi, getApi, loadLedger, addReuseEvent, removeReuseEvent,
   loadConfig, saveConfig, weightsOf, newId,
+  hasSamples, clearSamples, wasSeeded, markSeeded,
   type ApiRecord, type Provenance, type Grouping, type Config, type ReuseEvent,
 } from './storage';
+import { SAMPLES } from './samples';
 import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
 import { scoreInventory, type ApiScore } from './scoring';
@@ -302,6 +304,31 @@ let intentT: number | undefined;
 $<HTMLInputElement>('#intent').addEventListener('input', () => { clearTimeout(intentT); intentT = window.setTimeout(renderInventory, 150); });
 $('#intent-clear').addEventListener('click', () => { $<HTMLInputElement>('#intent').value = ''; renderInventory(); });
 
+// ---- sample data ------------------------------------------------------------
+function seedSamples(force: boolean) {
+  if (force) clearSamples();
+  for (const s of SAMPLES) {
+    upsertApi({
+      id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, apisjson: s.apisjson,
+      grouping: s.grouping, provenance: { source: 'sample' }, savedAt: Date.now(),
+    });
+  }
+  markSeeded();
+  recompute();
+  activeId = null;
+  renderInventory(); populateLedgerApis();
+}
+function updateSamplesBar() {
+  const on = hasSamples();
+  $('#reload-samples').textContent = on ? 'Reload samples' : 'Load samples';
+  ($('#clear-samples') as HTMLButtonElement).disabled = !on;
+  $('#samples-note').textContent = on
+    ? `Sample org loaded — ${SAMPLES.length} APIs across 2 orgs, with built-in duplication. Try the Report tab.`
+    : 'Samples cleared. Load them to explore the app with demo data.';
+}
+$('#reload-samples').addEventListener('click', () => { seedSamples(true); updateSamplesBar(); switchTab('inventory'); status(`Loaded ${SAMPLES.length} sample APIs`); });
+$('#clear-samples').addEventListener('click', () => { clearSamples(); recompute(); if (activeId && !getApi(activeId)) activeId = null; renderInventory(); populateLedgerApis(); updateSamplesBar(); status('Cleared sample APIs'); });
+
 // ---- report -----------------------------------------------------------------
 function renderReport() {
   const inv = loadInventory();
@@ -462,8 +489,13 @@ $('#download-apisjson').addEventListener('click', () => {
 });
 
 // ---- boot -------------------------------------------------------------------
+// First-ever visit with an empty inventory → seed the 25 samples so the app
+// shows full functionality out of the box. Once seeded (or cleared), we never
+// auto-reseed — the user drives it with the Load / Clear buttons.
+if (loadInventory().length === 0 && !wasSeeded()) seedSamples(false);
 recompute();
 renderInventory();
+updateSamplesBar();
 showProvenance();
 
 initEngage(() => {
