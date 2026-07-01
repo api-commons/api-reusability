@@ -49,10 +49,11 @@
         <div id="provenance" class="prov muted small">No API loaded — search a source, upload a HAR, or import an APIs.json.</div>
         <div id="editor" class="editor"></div>
         <div class="savebar">
-          <input id="api-name" placeholder="API name" autocomplete="off" />
-          <input id="grp-org" class="grp" placeholder="org" autocomplete="off" title="Organization (for grouping)" />
-          <input id="grp-team" class="grp" placeholder="team" autocomplete="off" title="Team (for grouping)" />
-          <input id="grp-domain" class="grp" placeholder="domain" autocomplete="off" title="Domain (for grouping)" />
+          <p class="savebar-hint">Name the API, then tag it by <strong>org / team / domain</strong> — these group the reusability report so you can roll grades up by organization, team, or business domain.</p>
+          <label class="field field-name"><span>API name</span><input id="api-name" placeholder="e.g. Payments API" autocomplete="off" /></label>
+          <label class="field"><span>Org</span><input id="grp-org" class="grp" placeholder="e.g. Acme" autocomplete="off" title="Organization — the top-level owner" /></label>
+          <label class="field"><span>Team</span><input id="grp-team" class="grp" placeholder="e.g. Payments" autocomplete="off" title="Team that owns the API" /></label>
+          <label class="field"><span>Domain</span><input id="grp-domain" class="grp" placeholder="e.g. finance" autocomplete="off" title="Business domain / capability area" /></label>
           <button id="add-inventory" class="btn-accent" title="Score this spec and add it to the inventory">Add to inventory</button>
           <span id="save-status" class="muted small"></span>
         </div>

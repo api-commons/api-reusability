@@ -208,3 +208,12 @@ ul.conso li { margin: 0.25rem 0; }
 /* example-set selector in the samples bar */
 .samples-bar select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; font-size: 0.8rem; max-width: 46%; }
 .samples-bar .btn-accent { background: var(--accent); color: #06243d; border: 0; }
+
+/* labeled fields in the Add-to-inventory bar */
+.savebar { align-items: flex-end; }
+.savebar-hint { flex-basis: 100%; order: -1; margin: 0 0 4px; font-size: 0.72rem; line-height: 1.35; color: var(--muted); }
+.savebar .field { display: flex; flex-direction: column; gap: 2px; flex: 0 0 auto; }
+.savebar .field > span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.savebar .field.field-name { flex: 1 1 8rem; }
+.savebar .field input { width: 100%; flex: none; }
+.savebar .field .grp { width: 82px; }
