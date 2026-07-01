@@ -26,7 +26,33 @@ const PROVIDERS = [
   { id: 'slack', org: 'Slack', domain: 'communications' },
   { id: 'claude', dir: 'anthropic', org: 'Claude', domain: 'ai' },
   { id: 'chatgpt', org: 'ChatGPT', domain: 'ai' },
+  // Fintech & payments
+  { id: 'adyen', org: 'Adyen', domain: 'payments' },
+  { id: 'mastercard', org: 'Mastercard', domain: 'payments' },
+  { id: 'klarna', org: 'Klarna', domain: 'payments' },
+  { id: 'worldpay', org: 'Worldpay', domain: 'payments' },
+  { id: 'fireblocks', org: 'Fireblocks', domain: 'crypto' },
+  { id: 'binance', org: 'Binance', domain: 'crypto' },
+  // Commerce & retail
+  { id: 'bigcommerce', org: 'BigCommerce', domain: 'commerce' },
+  { id: 'vtex', org: 'VTEX', domain: 'commerce' },
+  { id: 'ebay', org: 'eBay', domain: 'commerce' },
+  { id: 'walmart', org: 'Walmart', domain: 'commerce' },
+  { id: 'webflow', org: 'Webflow', domain: 'commerce' },
+  // Dev & infrastructure
+  { id: 'cloudflare', org: 'Cloudflare', domain: 'infrastructure' },
+  { id: 'fastly', org: 'Fastly', domain: 'infrastructure' },
+  { id: 'sentry', dir: 'sentry-system', org: 'Sentry', domain: 'developer-tools' },
+  { id: 'box', org: 'Box', domain: 'storage' },
+  { id: 'chainstack', org: 'Chainstack', domain: 'infrastructure' },
+  // CRM, SaaS & enterprise
+  { id: 'zendesk', org: 'Zendesk', domain: 'crm' },
+  { id: 'hubspot', org: 'HubSpot', domain: 'crm' },
+  { id: 'asana', org: 'Asana', domain: 'productivity' },
+  { id: 'coveo', org: 'Coveo', domain: 'search' },
+  { id: 'workday', dir: 'workday-integration', org: 'Workday', domain: 'hr' },
 ];
+const MAX_APIS = 60; // keep the biggest providers' bundles browser-friendly
 
 // Map the many apis.yml property types down to the app's operational catalog,
 // so chips stay meaningful and feed Axis B (drop everything else).
@@ -136,8 +162,12 @@ for (const p of PROVIDERS) {
     }
   }
 
+  let capped = 0;
+  if (apis.length > MAX_APIS) { capped = apis.length - MAX_APIS; apis.length = MAX_APIS; }
+
   const outFile = join(OUT, `${p.id}.json`);
   writeFileSync(outFile, JSON.stringify({ format: 'api-reusability-preset', set: p.id, org: p.org, apis }));
+  if (capped) console.log(`  (capped ${p.id} to ${MAX_APIS}, dropped ${capped})`);
   const mb = (readFileSync(outFile).length / 1024 / 1024).toFixed(2);
   console.log(`${p.id}: ${apis.length} APIs, ${skipped} skipped → ${outFile} (${mb} MB)`);
 }

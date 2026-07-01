@@ -12,19 +12,48 @@ export interface PresetSet {
 }
 
 const base = import.meta.env.BASE_URL; // '/' on Pages
+const file = (id: string, label: string): PresetSet => ({ id, label, kind: 'file', url: `${base}presets/${id}.json` });
+
 export const PRESET_SETS: PresetSet[] = [
   { id: 'sample', label: 'Demo org — 25 synthetic APIs', kind: 'builtin' },
-  { id: 'twilio', label: 'Twilio — real APIs (all/*)', kind: 'file', url: `${base}presets/twilio.json` },
-  { id: 'stripe', label: 'Stripe — real APIs (all/*)', kind: 'file', url: `${base}presets/stripe.json` },
-  { id: 'atlassian', label: 'Atlassian — real APIs (all/*)', kind: 'file', url: `${base}presets/atlassian.json` },
-  { id: 'github', label: 'GitHub — real APIs (all/*)', kind: 'file', url: `${base}presets/github.json` },
-  { id: 'sendgrid', label: 'SendGrid — real APIs (all/*)', kind: 'file', url: `${base}presets/sendgrid.json` },
-  { id: 'plaid', label: 'Plaid — real APIs (all/*)', kind: 'file', url: `${base}presets/plaid.json` },
-  { id: 'openai', label: 'OpenAI — real APIs (all/*)', kind: 'file', url: `${base}presets/openai.json` },
-  { id: 'shopify', label: 'Shopify — real APIs (all/*)', kind: 'file', url: `${base}presets/shopify.json` },
-  { id: 'slack', label: 'Slack — real APIs (all/*)', kind: 'file', url: `${base}presets/slack.json` },
-  { id: 'claude', label: 'Claude — real APIs (all/*)', kind: 'file', url: `${base}presets/claude.json` },
-  { id: 'chatgpt', label: 'ChatGPT — real APIs (all/*)', kind: 'file', url: `${base}presets/chatgpt.json` },
+  // AI
+  file('openai', 'OpenAI — AI'),
+  file('claude', 'Claude — AI'),
+  file('chatgpt', 'ChatGPT — AI'),
+  // Payments, fintech & crypto
+  file('stripe', 'Stripe — payments'),
+  file('adyen', 'Adyen — payments'),
+  file('mastercard', 'Mastercard — payments'),
+  file('klarna', 'Klarna — payments'),
+  file('worldpay', 'Worldpay — payments'),
+  file('plaid', 'Plaid — fintech'),
+  file('fireblocks', 'Fireblocks — crypto'),
+  file('binance', 'Binance — crypto'),
+  // Commerce & retail
+  file('shopify', 'Shopify — commerce'),
+  file('bigcommerce', 'BigCommerce — commerce'),
+  file('vtex', 'VTEX — commerce'),
+  file('ebay', 'eBay — commerce'),
+  file('walmart', 'Walmart — commerce'),
+  file('webflow', 'Webflow — commerce'),
+  // Developer tools & infrastructure
+  file('github', 'GitHub — developer tools'),
+  file('atlassian', 'Atlassian — developer tools'),
+  file('sentry', 'Sentry — developer tools'),
+  file('cloudflare', 'Cloudflare — infrastructure'),
+  file('fastly', 'Fastly — infrastructure'),
+  file('chainstack', 'Chainstack — infrastructure'),
+  file('box', 'Box — storage'),
+  // CRM, SaaS & enterprise
+  file('zendesk', 'Zendesk — CRM'),
+  file('hubspot', 'HubSpot — CRM'),
+  file('asana', 'Asana — productivity'),
+  file('coveo', 'Coveo — search'),
+  file('workday', 'Workday — HR'),
+  // Communications & messaging
+  file('twilio', 'Twilio — communications'),
+  file('slack', 'Slack — communications'),
+  file('sendgrid', 'SendGrid — email'),
 ];
 
 export async function loadPresetSet(id: string): Promise<Sample[]> {
