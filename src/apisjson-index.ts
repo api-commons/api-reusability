@@ -77,7 +77,7 @@ export function buildIndex(inv: ApiRecord[], scores: ApiScore[], collectionName 
     created: today,
     modified: today,
     apis: inv.map((a) => entryFor(a, scoreById.get(a.id))),
-    rules: [{ type: 'SpectralRules', name: 'Spotlight Rules', url: 'https://spotlight-rules.com/spec/' }],
+    rules: [{ type: 'SpectralRules', name: 'API Commons Rulesets', url: 'https://apicommons.org/rulesets/' }],
   };
   return stringify(doc);
 }

@@ -725,7 +725,7 @@ function renderAbout() {
     <h3>Getting started</h3>
     <p>The app loads with <strong>25 sample APIs</strong> (two orgs, deliberate duplication) so you can explore every feature immediately. Use <em>Clear samples</em> when you're ready to bring your own. Load one of the samples into the editor to see its OpenAPI and its operational properties, and watch the Axis B readout move as you add or remove them.</p>
 
-    <p class="src-note">Part of the <a href="https://apicommons.org" target="_blank" rel="noopener">API Commons</a> family, alongside <a href="https://apis.io" target="_blank" rel="noopener">APIs.io</a> and the Spotlight tools. Open source on <a href="https://github.com/api-commons/api-reusability" target="_blank" rel="noopener">GitHub</a>.</p>
+    <p class="src-note">Part of the <a href="https://apicommons.org" target="_blank" rel="noopener">API Commons</a> family, alongside <a href="https://apis.io" target="_blank" rel="noopener">APIs.io</a> and <a href="https://discover.apicommons.org" target="_blank" rel="noopener">API Discovery</a>. Open source on <a href="https://github.com/api-commons/api-reusability" target="_blank" rel="noopener">GitHub</a>.</p>
   `;
   $('#about-to-rubric')?.addEventListener('click', (e) => { e.preventDefault(); switchTab('rubric'); });
 }

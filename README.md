@@ -1,7 +1,7 @@
 # API Reusability
 
 A browser-first tool for assessing **how reusable the APIs across your organization
-really are** — modeled on [Spotlight Discovery](https://github.com/api-commons/spotlight-discovery)
+really are** — modeled on [API Discovery](https://github.com/api-commons/api-discovery)
 and [Spotlight Validator](https://github.com/api-commons/spotlight-validator).
 
 Live at **[reusability.apicommons.org](https://reusability.apicommons.org)**. Runs
