@@ -60,11 +60,14 @@
 
         <details class="meta-panel" open>
           <summary>
-            Operational metadata (APIs.json)
-            <span id="axisb-readout" class="axisb-readout" title="Axis B — operational reusability of the API in view">B —</span>
+            APIs.json properties
+            <span class="axis-readouts">
+              <span id="axisb-readout" class="axisb-readout" title="Axis B — operational reusability of the API in view">B —</span>
+              <span id="axisc-readout" class="axisb-readout" title="Axis C — composability / agent-readiness of the API in view">C —</span>
+            </span>
           </summary>
           <div class="meta-body">
-            <p class="src-note">Wrap this API in an APIs.json and add the properties a developer needs to adopt it — documentation, sign-up, login, sandbox, and more. Each one lifts the operational reusability score.</p>
+            <p class="src-note">Wrap this API in an APIs.json and add the properties that make it adoptable — documentation, sign-up, sandbox, rate limits, webhooks (operational, Axis B) — and composable — Arazzo workflows, MCP server, agent skills (Axis C). Each lifts its axis score.</p>
             <div class="meta-add">
               <select id="prop-type" title="Property type"></select>
               <input id="prop-url" type="url" placeholder="https://…" autocomplete="off" />
@@ -152,9 +155,10 @@
             <details class="cfg-group" open>
               <summary>Scoring weights</summary>
               <div class="cfg-fields">
-                <p class="src-note">The composite grade is a weighted blend. Tune it to your org's definition of reuse.</p>
-                <label><span>OpenAPI design (Axis A)</span><input type="number" id="w-openapi" step="0.05" min="0" max="1" value="0.5"></label>
-                <label><span>APIs.json metadata (Axis B)</span><input type="number" id="w-apisjson" step="0.05" min="0" max="1" value="0.3"></label>
+                <p class="src-note">The composite grade is a weighted blend of three axes plus a duplication penalty. Tune it to your org's definition of reuse.</p>
+                <label><span>Design — OpenAPI (Axis A)</span><input type="number" id="w-openapi" step="0.05" min="0" max="1" value="0.4"></label>
+                <label><span>Operational — APIs.json (Axis B)</span><input type="number" id="w-apisjson" step="0.05" min="0" max="1" value="0.25"></label>
+                <label><span>Composability (Axis C)</span><input type="number" id="w-composability" step="0.05" min="0" max="1" value="0.15"></label>
                 <label><span>Duplication penalty</span><input type="number" id="w-duplication" step="0.05" min="0" max="1" value="0.2"></label>
               </div>
             </details>

@@ -62,11 +62,12 @@ const LEDGER = 'api-reusability:reuse-ledger';
 // Scoring weights for the composite grade. Exposed in Config so the rubric is
 // tunable — the definition of "reuse" is not hard-coded.
 export interface Weights {
-  openapi: number; // Axis A weight
-  apisjson: number; // Axis B weight
+  openapi: number; // Axis A weight (design)
+  apisjson: number; // Axis B weight (operational)
+  composability: number; // Axis C weight (composability / agent-readiness)
   duplication: number; // duplication-penalty weight
 }
-export const DEFAULT_WEIGHTS: Weights = { openapi: 0.5, apisjson: 0.3, duplication: 0.2 };
+export const DEFAULT_WEIGHTS: Weights = { openapi: 0.4, apisjson: 0.25, composability: 0.15, duplication: 0.2 };
 
 export interface Config {
   // discovery

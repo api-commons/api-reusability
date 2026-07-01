@@ -247,3 +247,6 @@ ul.conso li { overflow-wrap: anywhere; }
 .samples-bar select:hover { filter: brightness(1.1); }
 .samples-bar .btn-accent { padding: 7px 14px; font-size: 0.88rem; font-weight: 700; }
 .samples-bar #samples-note { flex-basis: 100%; order: 3; margin-top: 2px; }
+
+/* dual Axis B / C readouts in the properties panel header */
+.axis-readouts { display: inline-flex; gap: 0.35rem; }

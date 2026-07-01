@@ -26,8 +26,9 @@ export function buildReportJson(input: ReportInput) {
     summary: {
       apis: inventory.length,
       avgComposite: mean(scores.map((s) => s.composite)),
-      avgOpenApi: mean(scores.map((s) => s.axisA.score)),
-      avgApisJson: mean(scores.map((s) => s.axisB.score)),
+      avgDesign: mean(scores.map((s) => s.axisA.score)),
+      avgOperational: mean(scores.map((s) => s.axisB.score)),
+      avgComposability: mean(scores.map((s) => s.axisC.score)),
       pathOverlapRate: duplication.pathOverlapRate,
       duplicateSchemas: duplication.duplicateSchemas,
     },
@@ -35,8 +36,9 @@ export function buildReportJson(input: ReportInput) {
       name: s.name,
       grade: s.letter,
       composite: s.composite,
-      openapiScore: s.axisA.score,
-      apisjsonScore: s.axisB.score,
+      design: s.axisA.score,
+      operational: s.axisB.score,
+      composability: s.axisC.score,
       duplicationPenalty: Math.round(s.penalty * 100),
     })),
     groupings,
@@ -56,8 +58,9 @@ export function buildReportMarkdown(input: ReportInput): string {
   L.push('| Metric | Value |', '| --- | --- |');
   L.push(`| APIs assessed | ${inventory.length} |`);
   L.push(`| Avg composite | ${avg}/100 |`);
-  L.push(`| Avg OpenAPI (design) | ${mean(scores.map((s) => s.axisA.score))}/100 |`);
-  L.push(`| Avg APIs.json (metadata) | ${mean(scores.map((s) => s.axisB.score))}/100 |`);
+  L.push(`| Avg design (A) | ${mean(scores.map((s) => s.axisA.score))}/100 |`);
+  L.push(`| Avg operational (B) | ${mean(scores.map((s) => s.axisB.score))}/100 |`);
+  L.push(`| Avg composability (C) | ${mean(scores.map((s) => s.axisC.score))}/100 |`);
   L.push(`| Path overlap rate | ${duplication.pathOverlapRate}% |`);
   L.push(`| Duplicate schemas | ${duplication.duplicateSchemas} |`, '');
 
@@ -65,15 +68,15 @@ export function buildReportMarkdown(input: ReportInput): string {
     const rows = rollup(inventory, scores, by).filter((r) => r.key !== 'ungrouped' || rollup(inventory, scores, by).length === 1);
     if (!rows.length) continue;
     L.push(`## By ${by}`, '');
-    L.push('| ' + by[0].toUpperCase() + by.slice(1) + ' | APIs | Grade | Composite | Design | Metadata |', '| --- | --- | --- | --- | --- | --- |');
-    for (const r of rows) L.push(`| ${r.key} | ${r.apiCount} | ${r.letter} | ${r.avgComposite} | ${r.avgAxisA} | ${r.avgAxisB} |`);
+    L.push('| ' + by[0].toUpperCase() + by.slice(1) + ' | APIs | Grade | Composite | Design | Operational | Compose |', '| --- | --- | --- | --- | --- | --- | --- |');
+    for (const r of rows) L.push(`| ${r.key} | ${r.apiCount} | ${r.letter} | ${r.avgComposite} | ${r.avgAxisA} | ${r.avgAxisB} | ${r.avgAxisC} |`);
     L.push('');
   }
 
   L.push('## Per-API grades', '');
-  L.push('| API | Grade | Composite | Design | Metadata | Duplication |', '| --- | --- | --- | --- | --- | --- |');
+  L.push('| API | Grade | Composite | Design | Operational | Compose | Duplication |', '| --- | --- | --- | --- | --- | --- | --- |');
   for (const s of [...scores].sort((a, b) => b.composite - a.composite)) {
-    L.push(`| ${s.name} | ${s.letter} | ${s.composite} | ${s.axisA.score} | ${s.axisB.score} | ${Math.round(s.penalty * 100)}% |`);
+    L.push(`| ${s.name} | ${s.letter} | ${s.composite} | ${s.axisA.score} | ${s.axisB.score} | ${s.axisC.score} | ${Math.round(s.penalty * 100)}% |`);
   }
   L.push('');
 

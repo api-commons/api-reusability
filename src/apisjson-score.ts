@@ -1,11 +1,10 @@
 // Axis B — operational reusability (APIs.json metadata richness).
 //
-// Reusability isn't only about the OpenAPI shape; it's whether an API is
-// findable, tryable, and supported. This scores the operational metadata a
-// consumer needs to adopt an API without a meeting: documentation, sign-up,
-// login, sandbox, support, pricing, terms, license, status. The property
-// catalog + weights live in properties.ts so the UI and the rubric never drift.
-import { COMMON_PROPERTIES, hasType } from './properties';
+// Whether an API is findable, onboardable, operable, and consumable: docs,
+// getting-started, sign-up, login, sandbox, rate limits, status, changelog,
+// error codes, webhooks, support, SDK/CLI/Postman, pricing, terms. The catalog +
+// weights live in properties.ts (Axis B entries) so the UI and rubric never drift.
+import { propsByAxis, hasType } from './properties';
 import type { ApiProperty } from './storage';
 
 export interface MetaCheck {
@@ -35,7 +34,7 @@ export function scoreApisJson(input: ApisJsonInput): ApisJsonScore {
   const checks: MetaCheck[] = [
     { key: 'desc', label: 'Rich description', weight: 1, present: desc.length >= 40, hint: 'Describe what the API is for (40+ chars).' },
     { key: 'tags', label: 'Tagged / categorized', weight: 0.5, present: !!(input.tags && input.tags.length), hint: 'Assign org/team/domain so it surfaces in discovery.' },
-    ...COMMON_PROPERTIES.map((def) => ({
+    ...propsByAxis('B').map((def) => ({
       key: def.type,
       label: def.label,
       weight: def.weight,

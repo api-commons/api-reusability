@@ -123,20 +123,23 @@ function buildProps(d: Desc, tier: 'full' | 'partial'): ApiProperty[] {
   const org = slug(d.org);
   const dev = `https://developer.${org}.example.com/${s}`;
   const make = (type: string, path: string): ApiProperty => ({ type, url: `${dev}/${path}` });
+  // full → strong operational (B) + composability (C), like a well-run provider
   const full: ApiProperty[] = [
-    make('Documentation', 'docs'),
-    make('SignUp', 'signup'),
-    make('Login', 'login'),
-    make('Sandbox', 'sandbox'),
-    make('Support', 'support'),
-    make('Pricing', 'pricing'),
-    { type: 'TermsOfService', url: `https://${org}.example.com/terms` },
-    { type: 'License', url: 'https://spdx.org/licenses/Apache-2.0.html' },
-    make('StatusPage', 'status'),
-    make('SDK', 'sdk'),
+    make('Documentation', 'docs'), make('GettingStarted', 'start'), make('SignUp', 'signup'),
+    make('Login', 'login'), make('Sandbox', 'sandbox'), make('RateLimits', 'limits'),
+    make('Webhooks', 'webhooks'), make('StatusPage', 'status'), make('ChangeLog', 'changelog'),
+    make('ErrorCodes', 'errors'), make('Support', 'support'), make('SDK', 'sdk'),
+    make('Postman', 'postman'), make('Pricing', 'pricing'), { type: 'TermsOfService', url: `https://${org}.example.com/terms` },
+    make('Arazzo', 'workflows'), make('MCP', 'mcp'), make('Integrations', 'integrations'),
   ];
-  // partial → the onboarding basics only
-  return tier === 'full' ? full : [make('Documentation', 'docs'), make('Login', 'login'), make('Support', 'support')];
+  // partial → solid operational metadata + a little composability
+  return tier === 'full'
+    ? full
+    : [
+        make('Documentation', 'docs'), make('GettingStarted', 'start'), make('Login', 'login'),
+        make('Sandbox', 'sandbox'), make('Support', 'support'), make('RateLimits', 'limits'),
+        make('StatusPage', 'status'), make('SDK', 'sdk'), make('Integrations', 'integrations'),
+      ];
 }
 
 // 25 descriptors. Note the deliberate overlaps: user/users, order/orders,

@@ -56,23 +56,40 @@ const MAX_APIS = 60; // keep the biggest providers' bundles browser-friendly
 
 // Map the many apis.yml property types down to the app's operational catalog,
 // so chips stay meaningful and feed Axis B (drop everything else).
+// Maps raw apis.yml property types → the app's rubric-v2 catalog (Axis B + C).
 const TYPE_MAP = {
-  documentation: 'Documentation', apireference: 'Documentation', gettingstarted: 'Documentation', reference: 'Documentation', docs: 'Documentation',
+  // Axis B — onboarding
+  documentation: 'Documentation', apireference: 'Documentation', reference: 'Documentation', docs: 'Documentation',
+  gettingstarted: 'GettingStarted', quickstart: 'GettingStarted', getstarted: 'GettingStarted', onboarding: 'GettingStarted',
   signup: 'SignUp', register: 'SignUp', registration: 'SignUp',
   login: 'Login', authentication: 'Login', apikeys: 'Login', oauth: 'Login', auth: 'Login',
   sandbox: 'Sandbox', testing: 'Sandbox', testconsole: 'Sandbox', tryit: 'Sandbox', playground: 'Sandbox',
-  support: 'Support', discord: 'Support', stackoverflow: 'Support', contact: 'Support', help: 'Support',
-  pricing: 'Pricing', plans: 'Pricing',
-  termsofservice: 'TermsOfService', terms: 'TermsOfService',
-  license: 'License',
+  // Axis B — operability
+  ratelimits: 'RateLimits', ratelimit: 'RateLimits', throttling: 'RateLimits', quotas: 'RateLimits',
   statuspage: 'StatusPage', status: 'StatusPage',
   changelog: 'ChangeLog', versioning: 'ChangeLog', releasenotes: 'ChangeLog',
+  errorcodes: 'ErrorCodes', errors: 'ErrorCodes',
+  webhooks: 'Webhooks', webhook: 'Webhooks', events: 'Webhooks',
+  support: 'Support', discord: 'Support', stackoverflow: 'Support', contact: 'Support', help: 'Support', community: 'Support',
+  // Axis B — consumption tooling
+  sdks: 'SDK', sdk: 'SDK',
+  cli: 'CLI',
+  postmanworkspace: 'Postman', postman: 'Postman', collection: 'Postman', collections: 'Postman', bruno: 'Postman',
+  // Axis B — commercial
+  pricing: 'Pricing', plans: 'Pricing',
+  termsofservice: 'TermsOfService', terms: 'TermsOfService',
+  // Axis C — composability / agent-readiness
+  arazzo: 'Arazzo', workflows: 'Arazzo',
+  mcpserver: 'MCP', mcp: 'MCP',
+  agentskills: 'AgentSkills', skills: 'AgentSkills',
+  integrations: 'Integrations', integration: 'Integrations',
+  usecases: 'UseCases', usecase: 'UseCases',
 };
 const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '');
 function catalogType(t) {
   const n = norm(t);
   if (TYPE_MAP[n]) return TYPE_MAP[n];
-  if (n.includes('sdk') || n === 'cli') return 'SDK';
+  if (n.includes('sdk')) return 'SDK';
   if (n.includes('doc')) return 'Documentation';
   return null;
 }

@@ -4,6 +4,7 @@
 // APIs score lower — reuse is rewarded, re-implementation is not.
 import { scoreOpenApi, type OpenApiScore } from './openapi-score';
 import { scoreApisJson, type ApisJsonScore } from './apisjson-score';
+import { scoreComposability, type ComposabilityScore } from './composability-score';
 import { analyzeDuplication, type DuplicationReport } from './duplication';
 import { resolveProperties } from './properties';
 import { letterFor, parseDoc } from './doc';
@@ -24,8 +25,9 @@ function axisBInput(a: ApiRecord) {
 export interface ApiScore {
   id: string;
   name: string;
-  axisA: OpenApiScore;
-  axisB: ApisJsonScore;
+  axisA: OpenApiScore; // design
+  axisB: ApisJsonScore; // operational
+  axisC: ComposabilityScore; // composability / agent-readiness
   penalty: number; // 0..1 duplication penalty
   composite: number; // 0..100
   letter: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -36,16 +38,20 @@ export function scoreInventory(inv: ApiRecord[], weights: Weights = DEFAULT_WEIG
   duplication: DuplicationReport;
 } {
   const duplication = analyzeDuplication(inv.map((a) => ({ id: a.id, name: a.name, openapi: a.openapi })));
-  const wsum = weights.openapi + weights.apisjson + weights.duplication || 1;
+  const wsum = weights.openapi + weights.apisjson + weights.composability + weights.duplication || 1;
 
   const scores: ApiScore[] = inv.map((a) => {
     const axisA = scoreOpenApi(a.openapi);
     const axisB = scoreApisJson(axisBInput(a));
+    const axisC = scoreComposability(resolveProperties(a));
     const penalty = duplication.penalties[a.id] ?? 0;
     const composite = Math.round(
-      (weights.openapi * axisA.score + weights.apisjson * axisB.score + weights.duplication * (1 - penalty) * 100) / wsum,
+      (weights.openapi * axisA.score +
+        weights.apisjson * axisB.score +
+        weights.composability * axisC.score +
+        weights.duplication * (1 - penalty) * 100) / wsum,
     );
-    return { id: a.id, name: a.name, axisA, axisB, penalty, composite, letter: letterFor(composite) };
+    return { id: a.id, name: a.name, axisA, axisB, axisC, penalty, composite, letter: letterFor(composite) };
   });
 
   return { scores, duplication };

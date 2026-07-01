@@ -13,6 +13,7 @@ import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
 import { scoreInventory, type ApiScore } from './scoring';
 import { scoreApisJson } from './apisjson-score';
+import { scoreComposability } from './composability-score';
 import { rollup, type GroupBy } from './grouping';
 import { buildIndex, buildApiApisJson } from './apisjson-index';
 import { buildReportMarkdown, buildReportJson } from './report';
@@ -367,15 +368,13 @@ function renderProps() {
       persistProps(); renderProps();
     });
   });
-  // live Axis B readout for the API in view
-  const b = scoreApisJson({
-    description: currentDescription(),
-    tags: [readGrouping().org, readGrouping().team, readGrouping().domain].filter(Boolean) as string[],
-    properties,
-  });
-  const el = $('#axisb-readout');
-  el.textContent = `B ${b.score}`;
-  el.className = 'axisb-readout ' + gradeClass(b.score >= 80 ? 'A' : b.score >= 60 ? 'C' : 'F').split(' ')[1];
+  // live Axis B + C readouts for the API in view
+  const g = readGrouping();
+  const b = scoreApisJson({ description: currentDescription(), tags: [g.org, g.team, g.domain].filter(Boolean) as string[], properties });
+  const c = scoreComposability(properties);
+  const tone = (n: number) => 'axisb-readout ' + gradeClass(n >= 80 ? 'A' : n >= 60 ? 'C' : 'F').split(' ')[1];
+  const bel = $('#axisb-readout'); bel.textContent = `B ${b.score}`; bel.className = tone(b.score);
+  const cel = $('#axisc-readout'); cel.textContent = `C ${c.score}`; cel.className = tone(c.score);
 }
 // If editing a saved API, persist property edits immediately and re-score.
 function persistProps() {
@@ -458,7 +457,7 @@ function renderInventory() {
         return `<li class="${a.id === activeId ? 'active' : ''}" data-id="${a.id}">
           <span class="${gradeClass(s?.letter || 'F')}" title="composite reusability">${s ? s.composite : '—'}</span>
           <span class="store-name" title="${esc(a.name)}">${esc(a.name)}</span>
-          <span class="store-meta">${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'}</span>
+          <span class="store-meta">${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'} · C ${s?.axisC.score ?? '—'}</span>
           <button class="store-btn" type="button">Load</button>
           <button class="store-del" type="button" title="Remove">&times;</button>
           <div class="inv-props prop-chips">${present}${missing}</div>
@@ -553,14 +552,15 @@ function renderReport() {
   const groupTable = (by: GroupBy) => {
     const rows = rollup(inv, scores, by);
     if (rows.length <= 1 && rows[0]?.key === 'ungrouped') return '';
-    return `<h3>By ${by}</h3><table class="scorecard"><thead><tr><th>${by}</th><th>APIs</th><th>Grade</th><th>Composite</th><th>Design</th><th>Metadata</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.key)}</td><td>${r.apiCount}</td><td><span class="${gradeClass(r.letter)}">${r.letter}</span></td><td>${r.avgComposite}</td><td>${r.avgAxisA}</td><td>${r.avgAxisB}</td></tr>`).join('')}</tbody></table>`;
+    return `<h3>By ${by}</h3><table class="scorecard"><thead><tr><th>${by}</th><th>APIs</th><th>Grade</th><th>Comp.</th><th>A design</th><th>B oper.</th><th>C compose</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.key)}</td><td>${r.apiCount}</td><td><span class="${gradeClass(r.letter)}">${r.letter}</span></td><td>${r.avgComposite}</td><td>${r.avgAxisA}</td><td>${r.avgAxisB}</td><td>${r.avgAxisC}</td></tr>`).join('')}</tbody></table>`;
   };
   body.innerHTML = `
     <div class="summary-grid">
       <div class="stat"><span class="stat-n">${j.summary.apis}</span><span class="stat-l">APIs</span></div>
       <div class="stat"><span class="stat-n">${j.summary.avgComposite}</span><span class="stat-l">avg reuse</span></div>
-      <div class="stat"><span class="stat-n">${j.summary.avgOpenApi}</span><span class="stat-l">design</span></div>
-      <div class="stat"><span class="stat-n">${j.summary.avgApisJson}</span><span class="stat-l">metadata</span></div>
+      <div class="stat"><span class="stat-n">${j.summary.avgDesign}</span><span class="stat-l">A design</span></div>
+      <div class="stat"><span class="stat-n">${j.summary.avgOperational}</span><span class="stat-l">B operational</span></div>
+      <div class="stat"><span class="stat-n">${j.summary.avgComposability}</span><span class="stat-l">C compose</span></div>
       <div class="stat"><span class="stat-n">${j.summary.pathOverlapRate}%</span><span class="stat-l">path overlap</span></div>
       <div class="stat"><span class="stat-n">${j.summary.duplicateSchemas}</span><span class="stat-l">dup schemas</span></div>
     </div>
@@ -577,7 +577,7 @@ function renderReport() {
           <div class="api-card-head">
             <span class="${gradeClass(s.letter)}">${s.letter}</span>
             <span class="api-card-name" title="${esc(s.name)}">${esc(s.name)}</span>
-            <span class="api-card-stats muted small">reuse ${s.composite} · design ${s.axisA.score} · meta ${s.axisB.score} · dup ${Math.round(s.penalty * 100)}%</span>
+            <span class="api-card-stats muted small">reuse ${s.composite} · A ${s.axisA.score} · B ${s.axisB.score} · C ${s.axisC.score} · dup ${Math.round(s.penalty * 100)}%</span>
           </div>
           <div class="prop-chips">${present}${missing}</div>
         </div>`;
@@ -669,16 +669,23 @@ $('#ledger-add').addEventListener('click', () => {
 function renderRubric() {
   $('#rubric-body').innerHTML = `
     <h2>What we mean by “reusable”</h2>
-    <p>Enterprises keep re-implementing the same capability across silos not because teams are bad at APIs, but because they can't <em>find</em>, <em>trust</em>, or <em>compose</em> what already exists. This tool makes reusability a measurable, published definition — so “reuse” isn't left undefined.</p>
+    <p>Enterprises keep re-implementing the same capability across silos not because teams are bad at APIs, but because they can't <em>find</em>, <em>trust</em>, or <em>compose</em> what already exists. This tool makes reusability a measurable, published definition — so “reuse” isn't left undefined. The rubric (v2) is calibrated against <strong>900+ real provider APIs</strong>: the weights favor the signals that actually separate strong APIs from weak ones, not hygiene everyone already meets.</p>
+
     <h3>Axis A — OpenAPI design (how reusable is the interface?)</h3>
-    <p>A transparent, weighted checklist over the OpenAPI: API-level description, <code>operationId</code>s, documented operations &amp; parameters, success-response schemas, error responses, security schemes, servers, tags, consistent path casing, and — most heavily weighted — <strong>schema reuse via <code>components</code> + <code>$ref</code></strong> rather than inline shapes. A spec you can generate an SDK or agent tool from is a reusable one.</p>
+    <p>A transparent, weighted checklist over the OpenAPI. The near-universal hygiene checks (description, <code>operationId</code>, tags) are kept but demoted; the weight goes to the real discriminators: <strong>error responses &amp; a shared error schema, security schemes, documented parameters, request/response schemas, examples, and schema reuse via <code>components</code> + <code>$ref</code></strong> — plus webhooks/callbacks and consistent path casing. A spec you can generate an SDK or agent tool from is a reusable one.</p>
+
     <h3>Axis B — operational metadata (can a developer actually adopt it?)</h3>
-    <p>Reuse also needs findability, self-service onboarding, and support. Every API is wrapped in a simple <strong>APIs.json</strong>, and you attach the operational properties that matter — weighted highest are the self-service onboarding signals: <strong>Documentation, Sign Up, Login, and Sandbox</strong> (can a consumer find, register for, and try the API without a meeting?), then Support, Pricing, Terms of Service, License, Status, and SDK. Add or remove them on any loaded API and watch this score move live.</p>
+    <p>Reuse needs findability, self-service onboarding, operability, and consumption tooling. Every API is wrapped in a simple <strong>APIs.json</strong>; attach the properties that matter. Weighted highest are the rare-but-valuable ones the best providers publish: <strong>Sandbox</strong> (try before you integrate) and <strong>Rate Limits</strong> (budget your usage), then Getting Started, Sign Up, Login, Webhooks, Error Codes, Status, Changelog, Support, and SDK / CLI / Postman collection. (We retired <em>License</em> — ~3% of real APIs publish it, so it wasn't telling us anything.)</p>
+
+    <h3>Axis C — composability &amp; agent-readiness (can it be reused as a capability?)</h3>
+    <p>The dimension the providers revealed: 60%+ ship <strong>Arazzo workflows</strong>, 40%+ ship an <strong>MCP server</strong>, most ship prebuilt <strong>Integrations</strong> and <strong>Agent Skills</strong>. This is the “capabilities are the unit of reuse” thesis made measurable — can the API be composed into a workflow or called by an agent, not just hit endpoint-by-endpoint?</p>
+
     <h3>Cross-API duplication (is it already built elsewhere?)</h3>
     <p>Across the whole inventory we detect repeated paths, near-identical schemas, and shared parameters/headers — the “three teams already built that” signal — and surface consolidation opportunities. Heavily-duplicated APIs carry a penalty.</p>
+
     <h3>Composite grade</h3>
-    <p>Composite = <code>wA·design + wB·metadata + wD·(1 − duplication)</code>, graded A–F. The weights are yours to tune in <strong>Config → Scoring weights</strong>, because every org's definition of reuse is a little different.</p>
-    <p class="src-note">Grounded in what enterprise practitioners told us reusability actually is: semantic discovery “before you build from scratch,” a shared taxonomy so teams can mark things reusable, and composition of existing APIs into named units.</p>
+    <p>Composite = <code>wA·design + wB·operational + wC·composability + wD·(1 − duplication)</code>, graded A–F. Defaults <code>0.40 / 0.25 / 0.15 / 0.20</code> — all tunable in <strong>Config → Scoring weights</strong>, because every org's definition of reuse is a little different.</p>
+    <p class="src-note">Grounded in what enterprise practitioners told us reusability actually is — discovery “before you build from scratch,” a shared taxonomy for marking things reusable, and composition of existing APIs into named units — and re-calibrated against what leading API providers actually ship.</p>
   `;
 }
 
@@ -711,7 +718,7 @@ function renderAbout() {
         </ul>
       </li>
       <li><strong>Index</strong> — every API is normalized to OpenAPI and wrapped in a simple <strong>APIs.json</strong>, where you attach the operational metadata a developer needs to adopt it: documentation, sign-up, login, sandbox, support, pricing, and more. Download one API's APIs.json from the editor, or the whole inventory as a single index from the top bar.</li>
-      <li><strong>Score</strong> — each API is graded on two axes plus cross-API duplication, then rolled up by <strong>org / team / domain</strong>. See the <a href="#" id="about-to-rubric">Rubric</a> tab for exactly how.</li>
+      <li><strong>Score</strong> — each API is graded on three axes (design, operational, composability) plus cross-API duplication, then rolled up by <strong>org / team / domain</strong>. See the <a href="#" id="about-to-rubric">Rubric</a> tab for exactly how.</li>
     </ol>
 
     <h3>What you can do with it</h3>
@@ -755,7 +762,7 @@ const CFG_MAP: Array<[string, keyof Config]> = [
   }
   // scoring weights
   const w = weightsOf(cfg);
-  const wmap: Array<[string, keyof typeof w]> = [['w-openapi', 'openapi'], ['w-apisjson', 'apisjson'], ['w-duplication', 'duplication']];
+  const wmap: Array<[string, keyof typeof w]> = [['w-openapi', 'openapi'], ['w-apisjson', 'apisjson'], ['w-composability', 'composability'], ['w-duplication', 'duplication']];
   for (const [id, key] of wmap) {
     const el = $<HTMLInputElement>('#' + id);
     el.value = String(w[key]);

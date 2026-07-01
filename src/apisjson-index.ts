@@ -46,8 +46,9 @@ function entryFor(a: ApiRecord, score?: ApiScore) {
     entry['x-reusability'] = {
       grade: score.letter,
       composite: score.composite,
-      openapiScore: score.axisA.score,
-      apisjsonScore: score.axisB.score,
+      designScore: score.axisA.score,
+      operationalScore: score.axisB.score,
+      composabilityScore: score.axisC.score,
       duplicationPenalty: Math.round(score.penalty * 100),
     };
   }

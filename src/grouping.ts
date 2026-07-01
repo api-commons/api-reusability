@@ -14,6 +14,7 @@ export interface GroupRollup {
   letter: 'A' | 'B' | 'C' | 'D' | 'F';
   avgAxisA: number;
   avgAxisB: number;
+  avgAxisC: number;
   members: { id: string; name: string; composite: number; letter: string }[];
 }
 
@@ -38,6 +39,7 @@ export function rollup(inv: ApiRecord[], scores: ApiScore[], by: GroupBy): Group
       letter: letterFor(avgComposite),
       avgAxisA: mean(ss.map((s) => s.axisA.score)),
       avgAxisB: mean(ss.map((s) => s.axisB.score)),
+      avgAxisC: mean(ss.map((s) => s.axisC.score)),
       members: ss
         .map((s) => ({ id: s.id, name: s.name, composite: s.composite, letter: s.letter }))
         .sort((a, b) => b.composite - a.composite),
