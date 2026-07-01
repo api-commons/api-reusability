@@ -196,3 +196,11 @@ ul.conso li { margin: 0.25rem 0; }
 /* inventory: operational-property chips row under each item */
 .store-list .inv-props { grid-column: 1 / -1; grid-row: 3; margin-top: 0.4rem; }
 .store-list .inv-props .prop-chip { font-size: 0.72rem; padding: 1px 5px 1px 7px; }
+
+/* scan button + key-driven source status */
+.scan-btn { background: #2d2d30; color: var(--accent); border: 1px solid var(--accent); border-radius: 5px; padding: 6px 12px; font-size: 0.85rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.scan-btn:hover { background: var(--accent); color: #06243d; }
+.source-status { display: flex; flex-wrap: wrap; gap: 0.5rem 0.9rem; margin-top: 0.2rem; }
+.src-state { font-size: 0.78rem; }
+.src-state.on { color: #3fb950; }
+.src-state.off { color: var(--muted); }

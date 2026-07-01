@@ -31,9 +31,10 @@
           <select id="source" class="src-select" aria-label="Search source" title="Where to search for evidence of APIs"></select>
           <div class="search-wrap">
             <input id="q" type="search" placeholder="Search for existing APIs…" autocomplete="off" />
-            <button id="search" title="Search">Search</button>
+            <button id="search" title="Search by keyword">Search</button>
             <div id="results" class="results" hidden></div>
           </div>
+          <button id="scan" class="scan-btn" type="button" title="Find every artifact of this type at the selected source and add them to the inventory">Scan</button>
           <label class="src-toggle file-btn" title="Upload one or more HAR files (browser/proxy traffic capture)">
             <input type="file" id="har-file" accept=".har,application/json" multiple hidden /> Upload HAR
           </label>
@@ -141,10 +142,8 @@
             <details class="cfg-group" open>
               <summary>Search sources</summary>
               <div class="cfg-fields">
-                <label class="src-toggle"><input type="checkbox" id="src-apis.io" checked disabled> APIs.io <span class="src-hint">(always on)</span></label>
-                <label class="src-toggle"><input type="checkbox" id="src-github" checked> GitHub</label>
-                <label class="src-toggle"><input type="checkbox" id="src-gitlab"> GitLab</label>
-                <label class="src-toggle"><input type="checkbox" id="src-bitbucket"> Bitbucket</label>
+                <p class="src-note">A source appears in the top dropdown as soon as you add its key below — APIs.io is always available. Then <strong>Search</strong> by keyword, or hit <strong>Scan</strong> to pull every artifact of the chosen type from the selected source into the inventory.</p>
+                <div id="source-status" class="source-status"></div>
               </div>
             </details>
             <details class="cfg-group" open>

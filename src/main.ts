@@ -94,11 +94,30 @@ typeSelect.addEventListener('change', () => { currentArtifact = artifactById(typ
 
 const sourceSelect = $<HTMLSelectElement>('#source');
 let currentSource: SourceId = 'apis.io';
+// A source is available in the dropdown as soon as its key is present in Config
+// (APIs.io is always available). No separate on/off toggles — keys drive it.
+function sourceToggles(): Record<string, boolean> {
+  const c = loadConfig();
+  return {
+    'apis.io': true,
+    github: !!c.githubToken,
+    gitlab: !!c.gitlabToken,
+    bitbucket: !!(c.bitbucketUser && c.bitbucketToken),
+  };
+}
 function populateSources() {
-  const enabled = enabledSources(loadConfig().sources);
+  const toggles = sourceToggles();
+  const enabled = enabledSources(toggles);
   sourceSelect.innerHTML = enabled.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
   if (!enabled.some((s) => s.id === currentSource)) currentSource = 'apis.io';
   sourceSelect.value = currentSource;
+  // reflect availability in Config
+  const status = document.querySelector('#source-status');
+  if (status) {
+    const labels: Record<string, string> = { 'apis.io': 'APIs.io', github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' };
+    status.innerHTML = Object.entries(labels).map(([id, label]) =>
+      `<span class="src-state ${toggles[id] ? 'on' : 'off'}">${toggles[id] ? '●' : '○'} ${label}</span>`).join('');
+  }
 }
 populateSources();
 sourceSelect.addEventListener('change', () => { currentSource = sourceSelect.value as SourceId; });
@@ -153,6 +172,57 @@ async function selectHit(h: Hit) {
 $('#search').addEventListener('click', runSearch);
 qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
 document.addEventListener('click', (e) => { if (!results.hidden && !(e.target as HTMLElement).closest('.search-wrap')) hideResults(); });
+
+// ---- scan: pull every artifact of the chosen type at the source -------------
+async function runScan() {
+  const srcLabel = sourceSelect.options[sourceSelect.selectedIndex]?.textContent || currentSource;
+  const q = qInput.value.trim(); // an optional keyword narrows the scan; empty = everything
+  msg(`Scanning ${srcLabel} for ${currentArtifact.label}…`);
+  let hits: Hit[] = [];
+  try {
+    hits = await searchSource(currentSource, currentArtifact, q, gitTokens());
+  } catch (e) {
+    msg(`Scan failed: ${e instanceof Error ? e.message : String(e)}`);
+    return;
+  }
+  if (!hits.length) { msg(currentArtifact.searchNote || `No ${currentArtifact.label} artifacts found on ${srcLabel}.`); return; }
+
+  let added = 0, failed = 0, firstId: string | null = null;
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i];
+    msg(`Scanning ${srcLabel}… loading ${i + 1}/${hits.length}: ${h.name}`);
+    try {
+      const content = await loadHit(h, gitTokens());
+      const prov: Provenance = h.source === 'apis.io'
+        ? { source: 'apis.io', url: h.url, aid: h.aid }
+        : { source: h.source, repo: h.repo, path: h.path, ref: h.ref, url: h.url };
+      const id = newId();
+      upsertApi({
+        id, name: h.name || h.aid || 'artifact', lang: detectLang(content), openapi: content,
+        properties: [], grouping: readGrouping(), provenance: prov, savedAt: Date.now(),
+      });
+      firstId ??= id;
+      added++;
+    } catch {
+      failed++;
+    }
+  }
+  recompute();
+  if (firstId) {
+    const rec = getApi(firstId)!;
+    activeId = rec.id; lang = rec.lang; provenance = rec.provenance;
+    properties = resolveProperties(rec).map((p) => ({ ...p }));
+    $<HTMLInputElement>('#api-name').value = rec.name;
+    writeGrouping(rec.grouping);
+    const m = editor.getModel(); if (m) monaco.editor.setModelLanguage(m, lang === 'json' ? 'json' : 'yaml');
+    editor.setValue(rec.openapi);
+    $('#lang-yaml').classList.toggle('active', lang === 'yaml'); $('#lang-json').classList.toggle('active', lang === 'json');
+    showProvenance(); renderProps();
+  }
+  renderInventory(); switchTab('inventory'); hideResults();
+  status(`Scanned ${srcLabel}: added ${added} ${currentArtifact.label} artifact${added === 1 ? '' : 's'}${failed ? ` · ${failed} couldn't load` : ''}.`, !!added);
+}
+$('#scan').addEventListener('click', runScan);
 
 // ---- HAR upload -------------------------------------------------------------
 $<HTMLInputElement>('#har-file').addEventListener('change', async (e) => {
@@ -642,18 +712,12 @@ const CFG_MAP: Array<[string, keyof Config]> = [
     let t: number | undefined;
     el.addEventListener('input', () => {
       clearTimeout(t);
-      t = window.setTimeout(() => { const c = loadConfig(); const v = el.value.trim(); if (v) (c[key] as string) = v; else delete c[key]; saveConfig(c); }, 300);
-    });
-  }
-  // source toggles
-  for (const id of ['github', 'gitlab', 'bitbucket'] as const) {
-    const el = $<HTMLInputElement>('#src-' + id);
-    el.checked = (cfg.sources?.[id]) ?? (id === 'github');
-    el.addEventListener('change', () => {
-      const c = loadConfig();
-      c.sources = { ...(c.sources || {}), [id]: el.checked };
-      saveConfig(c);
-      populateSources();
+      t = window.setTimeout(() => {
+        const c = loadConfig(); const v = el.value.trim();
+        if (v) (c[key] as string) = v; else delete c[key];
+        saveConfig(c);
+        populateSources(); // a newly-added key shows up in the source dropdown immediately
+      }, 300);
     });
   }
   // scoring weights
