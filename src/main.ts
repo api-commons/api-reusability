@@ -8,7 +8,7 @@ import {
   hasSamples, clearSamples, wasSeeded, markSeeded,
   type ApiRecord, type ApiProperty, type Provenance, type Grouping, type Config, type ReuseEvent,
 } from './storage';
-import { SAMPLES } from './samples';
+import { PRESET_SETS, loadPresetSet } from './presets';
 import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
 import { scoreInventory, type ApiScore } from './scoring';
@@ -502,30 +502,46 @@ $('#inventory-list').addEventListener('click', (e) => {
   }
 });
 
-// ---- sample data ------------------------------------------------------------
-function seedSamples(force: boolean) {
-  if (force) clearSamples();
-  for (const s of SAMPLES) {
-    upsertApi({
-      id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, properties: s.properties,
-      grouping: s.grouping, provenance: { source: 'sample' }, savedAt: Date.now(),
-    });
+// ---- example sets -----------------------------------------------------------
+const setSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const setSelect = $<HTMLSelectElement>('#sample-set');
+setSelect.innerHTML = PRESET_SETS.map((s) => `<option value="${s.id}">${s.label}</option>`).join('');
+
+// Load a named set into the inventory. replace=true clears existing examples
+// first; otherwise it's added (deduped so re-adding a set is a no-op).
+async function seedSet(setId: string, replace: boolean) {
+  const set = PRESET_SETS.find((s) => s.id === setId);
+  if (!set) return;
+  status(`Loading “${set.label}”…`);
+  let items;
+  try {
+    items = await loadPresetSet(setId);
+  } catch (e) {
+    status(`Could not load ${set.label}: ${e instanceof Error ? e.message : String(e)}`, false);
+    return;
+  }
+  if (replace) clearSamples();
+  const seen = new Set(loadInventory().map((a) => provKey(a.provenance)));
+  let added = 0, skipped = 0;
+  for (const s of items) {
+    const prov: Provenance = { source: 'sample', url: `preset:${setId}:${setSlug(s.name)}` };
+    if (seen.has(provKey(prov))) { skipped++; continue; }
+    upsertApi({ id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, properties: s.properties, grouping: s.grouping, provenance: prov, savedAt: Date.now() });
+    seen.add(provKey(prov));
+    added++;
   }
   markSeeded();
-  recompute();
   activeId = null;
-  renderInventory(); populateLedgerApis();
+  recompute(); renderInventory(); populateLedgerApis(); updateSamplesBar();
+  status(`${replace ? 'Loaded' : 'Added'} ${set.label}: ${added} API${added === 1 ? '' : 's'}${skipped ? ` · skipped ${skipped} already loaded` : ''}.`);
 }
 function updateSamplesBar() {
-  const on = hasSamples();
-  $('#reload-samples').textContent = on ? 'Reload samples' : 'Load samples';
-  ($('#clear-samples') as HTMLButtonElement).disabled = !on;
-  $('#samples-note').textContent = on
-    ? `Sample org loaded — ${SAMPLES.length} APIs across 2 orgs, with built-in duplication. Try the Report tab.`
-    : 'Samples cleared. Load them to explore the app with demo data.';
+  const n = loadInventory().filter((a) => a.provenance.source === 'sample').length;
+  ($('#clear-samples') as HTMLButtonElement).disabled = n === 0;
+  $('#samples-note').textContent = n ? `${n} example API${n === 1 ? '' : 's'} loaded — add more sets to compare across.` : 'No examples loaded — pick a set and Add.';
 }
-$('#reload-samples').addEventListener('click', () => { seedSamples(true); updateSamplesBar(); switchTab('inventory'); status(`Loaded ${SAMPLES.length} sample APIs`); });
-$('#clear-samples').addEventListener('click', () => { clearSamples(); recompute(); if (activeId && !getApi(activeId)) activeId = null; renderInventory(); populateLedgerApis(); updateSamplesBar(); status('Cleared sample APIs'); });
+$('#add-set').addEventListener('click', () => { seedSet(setSelect.value, false).then(() => switchTab('inventory')); });
+$('#clear-samples').addEventListener('click', () => { clearSamples(); recompute(); if (activeId && !getApi(activeId)) activeId = null; renderInventory(); populateLedgerApis(); updateSamplesBar(); status('Cleared example APIs'); });
 
 // ---- report -----------------------------------------------------------------
 function renderReport() {
@@ -766,12 +782,15 @@ $('#download-apisjson').addEventListener('click', () => {
 });
 
 // ---- boot -------------------------------------------------------------------
-// First-ever visit with an empty inventory → seed the 25 samples so the app
-// shows full functionality out of the box. Once seeded (or cleared), we never
-// auto-reseed — the user drives it with the Load / Clear buttons.
-if (loadInventory().length === 0 && !wasSeeded()) seedSamples(false);
-recompute();
-renderInventory();
+// First-ever visit with an empty inventory → seed the synthetic demo set so the
+// app shows full functionality out of the box. Once seeded (or cleared), we never
+// auto-reseed — the user drives it with the set selector.
+if (loadInventory().length === 0 && !wasSeeded()) {
+  seedSet('sample', true); // async — renders itself when done
+} else {
+  recompute();
+  renderInventory();
+}
 updateSamplesBar();
 renderProps();
 showProvenance();

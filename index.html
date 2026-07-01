@@ -95,9 +95,10 @@
             <button id="intent-clear" type="button" title="Clear">✕</button>
           </div>
           <div class="samples-bar">
-            <span class="muted small" id="samples-note">Sample org loaded — 25 APIs across 2 orgs, with built-in duplication.</span>
-            <button id="reload-samples" type="button" title="Reset the inventory to the 25 built-in sample APIs">Reload samples</button>
-            <button id="clear-samples" type="button" title="Remove the sample APIs (keeps anything you added)">Clear samples</button>
+            <select id="sample-set" title="Example inventory sets — synthetic demo org, or real Twilio / Stripe / Atlassian APIs"></select>
+            <button id="add-set" class="btn-accent" type="button" title="Add the selected set to the inventory (skips any already loaded)">Add set</button>
+            <button id="clear-samples" type="button" title="Remove all example APIs (keeps anything you added)">Clear examples</button>
+            <span class="muted small" id="samples-note"></span>
           </div>
           <p class="notice" id="intent-note" hidden></p>
           <ul id="inventory-list" class="store-list"></ul>

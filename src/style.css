@@ -204,3 +204,7 @@ ul.conso li { margin: 0.25rem 0; }
 .src-state { font-size: 0.78rem; }
 .src-state.on { color: #3fb950; }
 .src-state.off { color: var(--muted); }
+
+/* example-set selector in the samples bar */
+.samples-bar select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; font-size: 0.8rem; max-width: 46%; }
+.samples-bar .btn-accent { background: var(--accent); color: #06243d; border: 0; }
