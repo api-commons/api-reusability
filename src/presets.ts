@@ -17,6 +17,9 @@ export const PRESET_SETS: PresetSet[] = [
   { id: 'twilio', label: 'Twilio — real APIs (all/*)', kind: 'file', url: `${base}presets/twilio.json` },
   { id: 'stripe', label: 'Stripe — real APIs (all/*)', kind: 'file', url: `${base}presets/stripe.json` },
   { id: 'atlassian', label: 'Atlassian — real APIs (all/*)', kind: 'file', url: `${base}presets/atlassian.json` },
+  { id: 'github', label: 'GitHub — real APIs (all/*)', kind: 'file', url: `${base}presets/github.json` },
+  { id: 'sendgrid', label: 'SendGrid — real APIs (all/*)', kind: 'file', url: `${base}presets/sendgrid.json` },
+  { id: 'plaid', label: 'Plaid — real APIs (all/*)', kind: 'file', url: `${base}presets/plaid.json` },
 ];
 
 export async function loadPresetSet(id: string): Promise<Sample[]> {

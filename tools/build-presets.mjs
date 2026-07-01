@@ -17,6 +17,9 @@ const PROVIDERS = [
   { id: 'twilio', org: 'Twilio', domain: 'communications' },
   { id: 'stripe', org: 'Stripe', domain: 'payments' },
   { id: 'atlassian', org: 'Atlassian', domain: 'developer-tools' },
+  { id: 'github', org: 'GitHub', domain: 'developer-tools' },
+  { id: 'sendgrid', org: 'SendGrid', domain: 'email' },
+  { id: 'plaid', org: 'Plaid', domain: 'fintech' },
 ];
 
 // Map the many apis.yml property types down to the app's operational catalog,
@@ -62,13 +65,26 @@ for (const p of PROVIDERS) {
   const apis = [];
   let skipped = 0;
 
+  const MAX_SPEC_BYTES = 1200 * 1024; // skip giant specs (e.g. GitHub) — too big to score in-browser
+  // A real OpenAPI/Swagger has a top-level `openapi:`/`swagger:` line (at column 0),
+  // which overlays and other artifacts don't. (Specs may sort `components:` first,
+  // so match anywhere, not just the head.)
+  const isSpec = (t) => /^(openapi|swagger)\s*:/m.test(t);
   for (const a of doc.apis || []) {
     const props = Array.isArray(a.properties) ? a.properties : [];
-    const oapiProp = props.find((x) => String(x.type).toLowerCase() === 'openapi');
-    const file = resolveOpenApi(dir, oapiProp?.url);
+    // Try each OpenAPI-typed property in order; take the first that resolves to a
+    // file that actually validates as OpenAPI/Swagger (skips overlay/search art.).
+    const oapiProps = props.filter((x) => String(x.type).toLowerCase() === 'openapi');
+    let file = null, text = null;
+    for (const op of oapiProps) {
+      const f = resolveOpenApi(dir, op.url);
+      if (!f) continue;
+      let t; try { t = readFileSync(f, 'utf8'); } catch { continue; }
+      if (!isSpec(t)) continue;
+      file = f; text = t; break;
+    }
     if (!file) { skipped++; continue; }
-    let text;
-    try { text = readFileSync(file, 'utf8'); } catch { skipped++; continue; }
+    if (Buffer.byteLength(text) > MAX_SPEC_BYTES) { skipped++; continue; }
 
     // Curated operational properties mapped to the app's catalog (per-API +
     // provider-common), deduped by catalog type.
