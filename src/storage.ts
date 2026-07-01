@@ -1,0 +1,128 @@
+// Client-side persistence: discovered API inventory (scored) + config.
+// No backend — everything lives in the browser's localStorage, same model as
+// spotlight-discovery / spotlight-validator.
+
+export interface Provenance {
+  source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'har' | 'helper' | 'url' | 'manual';
+  url?: string; // where it was found / its source URL
+  repo?: string; // owner/repo (or workspace/repo)
+  path?: string; // file path in the repo
+  ref?: string; // branch/ref
+  aid?: string; // APIs.io artifact id
+  gateway?: 'aws' | 'kong' | 'tyk'; // helper-collected gateway origin
+}
+
+// Grouping keys used to roll reusability up by org / team / domain.
+export interface Grouping {
+  org?: string;
+  team?: string;
+  domain?: string;
+}
+
+// One discovered API in the inventory. `openapi` is the normalized spec text
+// (from apis.io, GitHub, a HAR synthesis, or the helper bundle). `apisjson` is
+// the optional apis.json entry describing it (metadata richness / Axis B).
+export interface ApiRecord {
+  id: string;
+  name: string;
+  lang: 'yaml' | 'json';
+  openapi: string; // the OpenAPI document text
+  apisjson?: string; // optional apis.json fragment (YAML or JSON) describing this API
+  grouping: Grouping;
+  provenance: Provenance;
+  savedAt: number;
+}
+
+// A recorded reuse event — a team adopting an existing API instead of rebuilding.
+// Lets an org report reuse actually happening (Chase's ask).
+export interface ReuseEvent {
+  id: string;
+  apiId: string; // ApiRecord.id that was reused
+  apiName: string;
+  team?: string;
+  note?: string;
+  extended?: boolean; // reused-and-extended vs. reused as-is
+  at: number;
+}
+
+const INV = 'api-reusability:inventory';
+const CFG = 'api-reusability:config';
+const LEDGER = 'api-reusability:reuse-ledger';
+
+// Scoring weights for the composite grade. Exposed in Config so the rubric is
+// tunable — the definition of "reuse" is not hard-coded.
+export interface Weights {
+  openapi: number; // Axis A weight
+  apisjson: number; // Axis B weight
+  duplication: number; // duplication-penalty weight
+}
+export const DEFAULT_WEIGHTS: Weights = { openapi: 0.5, apisjson: 0.3, duplication: 0.2 };
+
+export interface Config {
+  // discovery
+  githubToken?: string;
+  gitlabToken?: string;
+  bitbucketUser?: string;
+  bitbucketToken?: string;
+  sources?: Record<string, boolean>; // search source toggles (apis.io/github/gitlab/bitbucket)
+  // helper-only connectors (keys held here so the Config UI is complete; the
+  // actual calls run in the local helper CLI, never from the browser)
+  confluenceBaseUrl?: string;
+  confluenceToken?: string;
+  awsRegion?: string;
+  awsKey?: string;
+  awsSecret?: string;
+  kongAdminUrl?: string;
+  kongToken?: string;
+  tykUrl?: string;
+  tykToken?: string;
+  // scoring
+  weights?: Weights;
+}
+
+const read = <T>(k: string, fallback: T): T => {
+  try {
+    const v = JSON.parse(localStorage.getItem(k) || 'null');
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const write = (k: string, v: unknown) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {
+    /* disabled / quota */
+  }
+};
+
+// Inventory
+export const loadInventory = (): ApiRecord[] => read<ApiRecord[]>(INV, []);
+export const saveInventory = (a: ApiRecord[]) => write(INV, a);
+export function upsertApi(a: ApiRecord) {
+  const all = loadInventory();
+  const i = all.findIndex((x) => x.id === a.id);
+  if (i >= 0) all[i] = a;
+  else all.push(a);
+  saveInventory(all);
+}
+export const removeApi = (id: string) => saveInventory(loadInventory().filter((a) => a.id !== id));
+export const getApi = (id: string) => loadInventory().find((a) => a.id === id);
+
+// Reuse ledger
+export const loadLedger = (): ReuseEvent[] => read<ReuseEvent[]>(LEDGER, []);
+export const saveLedger = (e: ReuseEvent[]) => write(LEDGER, e);
+export function addReuseEvent(e: ReuseEvent) {
+  const all = loadLedger();
+  all.push(e);
+  saveLedger(all);
+}
+export const removeReuseEvent = (id: string) => saveLedger(loadLedger().filter((e) => e.id !== id));
+
+// Config
+export const loadConfig = (): Config => read<Config>(CFG, {});
+export const saveConfig = (c: Config) => write(CFG, c);
+export const weightsOf = (c: Config): Weights => ({ ...DEFAULT_WEIGHTS, ...(c.weights || {}) });
+
+export const newId = () =>
+  globalThis.crypto?.randomUUID?.() ?? 'a' + Math.random().toString(36).slice(2) + Date.now().toString(36);

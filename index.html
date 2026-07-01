@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API Reusability — assess reuse across your organization</title>
+    <meta name="description" content="Discover evidence of APIs (apis.io, GitHub, HAR uploads, gateways), index them as OpenAPI in APIs.json, and score how reusable each API — and each org, team, or domain — really is. Runs entirely in your browser." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <strong>API Reusability</strong>
+        <span class="tag">reusability.apicommons.org</span>
+      </div>
+      <nav>
+        <a href="#" id="nav-rubric" title="How reusability is scored">Rubric</a>
+        <a href="https://apis.io" target="_blank" rel="noopener">APIs.io</a>
+        <a href="https://apicommons.org" target="_blank" rel="noopener">API Commons</a>
+        <a href="https://github.com/api-commons/api-reusability" target="_blank" rel="noopener">GitHub</a>
+        <button id="engage-ae" class="engage-btn" type="button" title="Work with API Evangelist on API governance & reusability">Get help</button>
+        <button id="download-apisjson" class="dl-btn" type="button" title="Assemble the whole inventory into an APIs.json (YAML) reusability index and download">Download index</button>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <!-- LEFT: discover + inspect -->
+      <section class="pane">
+        <div class="toolbar">
+          <select id="artifact-type" class="src-select" aria-label="Artifact type"></select>
+          <select id="source" class="src-select" aria-label="Search source" title="Where to search for evidence of APIs"></select>
+          <div class="search-wrap">
+            <input id="q" type="search" placeholder="Search for existing APIs…" autocomplete="off" />
+            <button id="search" title="Search">Search</button>
+            <div id="results" class="results" hidden></div>
+          </div>
+          <label class="src-toggle file-btn" title="Upload one or more HAR files (browser/proxy traffic capture)">
+            <input type="file" id="har-file" accept=".har,application/json" multiple hidden /> Upload HAR
+          </label>
+          <label class="src-toggle file-btn" title="Import a helper bundle or an existing APIs.json index">
+            <input type="file" id="import-file" accept=".json,.yaml,.yml" hidden /> Import
+          </label>
+          <div class="lang-toggle" role="group" aria-label="Editor format">
+            <button id="lang-yaml" class="active" type="button">YAML</button>
+            <button id="lang-json" type="button">JSON</button>
+          </div>
+        </div>
+        <div id="provenance" class="prov muted small">No API loaded — search a source, upload a HAR, or import an APIs.json.</div>
+        <div id="editor" class="editor"></div>
+        <div class="savebar">
+          <input id="api-name" placeholder="API name" autocomplete="off" />
+          <input id="grp-org" class="grp" placeholder="org" autocomplete="off" title="Organization (for grouping)" />
+          <input id="grp-team" class="grp" placeholder="team" autocomplete="off" title="Team (for grouping)" />
+          <input id="grp-domain" class="grp" placeholder="domain" autocomplete="off" title="Domain (for grouping)" />
+          <button id="add-inventory" class="btn-accent" title="Score this spec and add it to the inventory">Add to inventory</button>
+          <span id="save-status" class="muted small"></span>
+        </div>
+      </section>
+
+      <!-- RIGHT: inventory / report / ledger / rubric / config -->
+      <section class="pane">
+        <div class="tabs">
+          <button class="tab active" data-tab="inventory" type="button">Inventory <span class="badge" id="inv-count">0</span></button>
+          <button class="tab" data-tab="report" type="button">Report</button>
+          <button class="tab" data-tab="ledger" type="button">Reuse ledger <span class="badge" id="ledger-count">0</span></button>
+          <button class="tab" data-tab="rubric" type="button">Rubric</button>
+          <button class="tab" data-tab="config" type="button">Config</button>
+        </div>
+
+        <!-- Inventory -->
+        <div class="tab-panel" id="tab-inventory">
+          <div class="filterbar">
+            <input id="intent" type="search" placeholder="What are you trying to build? (intent search — find reuse candidates)" autocomplete="off" />
+            <button id="intent-clear" type="button" title="Clear">✕</button>
+          </div>
+          <p class="notice" id="intent-note" hidden></p>
+          <ul id="inventory-list" class="store-list"></ul>
+        </div>
+
+        <!-- Report -->
+        <div class="tab-panel" id="tab-report" hidden>
+          <div class="repos-add">
+            <button id="export-md" type="button" title="Download the report as Markdown">Export Markdown</button>
+            <button id="export-json" type="button" title="Download the report as JSON">Export JSON</button>
+            <button id="rescore" class="btn-accent" type="button" title="Recompute all scores">Re-score</button>
+          </div>
+          <div id="report-body" class="report-body"></div>
+        </div>
+
+        <!-- Reuse ledger -->
+        <div class="tab-panel" id="tab-ledger" hidden>
+          <p class="notice">Record when a team <strong>reused</strong> an existing API instead of building a new one — so reuse can be reported, not just assumed.</p>
+          <div class="repos-add">
+            <select id="ledger-api" title="Which API was reused"></select>
+            <input id="ledger-team" placeholder="team" autocomplete="off" />
+            <label class="src-toggle"><input type="checkbox" id="ledger-extended" /> extended</label>
+            <button id="ledger-add" class="btn-accent" type="button">Log reuse</button>
+          </div>
+          <ul id="ledger-list" class="store-list"></ul>
+        </div>
+
+        <!-- Rubric -->
+        <div class="tab-panel" id="tab-rubric" hidden>
+          <div id="rubric-body" class="report-body"></div>
+        </div>
+
+        <!-- Config -->
+        <div class="tab-panel" id="tab-config" hidden>
+          <p class="notice">Keys are stored <strong>only in this browser's local storage</strong>. apis.io, GitHub, and HAR run directly from your browser. Gateway &amp; Confluence keys are used by the <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">local helper CLI</a> — browsers can't reach those safely.</p>
+          <div class="config-scroll">
+            <details class="cfg-group" open>
+              <summary>Search sources</summary>
+              <div class="cfg-fields">
+                <label class="src-toggle"><input type="checkbox" id="src-apis.io" checked disabled> APIs.io <span class="src-hint">(always on)</span></label>
+                <label class="src-toggle"><input type="checkbox" id="src-github" checked> GitHub</label>
+                <label class="src-toggle"><input type="checkbox" id="src-gitlab"> GitLab</label>
+                <label class="src-toggle"><input type="checkbox" id="src-bitbucket"> Bitbucket</label>
+              </div>
+            </details>
+            <details class="cfg-group" open>
+              <summary>Scoring weights</summary>
+              <div class="cfg-fields">
+                <p class="src-note">The composite grade is a weighted blend. Tune it to your org's definition of reuse.</p>
+                <label><span>OpenAPI design (Axis A)</span><input type="number" id="w-openapi" step="0.05" min="0" max="1" value="0.5"></label>
+                <label><span>APIs.json metadata (Axis B)</span><input type="number" id="w-apisjson" step="0.05" min="0" max="1" value="0.3"></label>
+                <label><span>Duplication penalty</span><input type="number" id="w-duplication" step="0.05" min="0" max="1" value="0.2"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>GitHub</summary>
+              <div class="cfg-fields">
+                <label><span>Personal access token <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">create ↗</a></span><input type="password" id="cfg-gh-token" autocomplete="off" placeholder="ghp_…"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>GitLab</summary>
+              <div class="cfg-fields">
+                <label><span>Token</span><input type="password" id="cfg-gl-token" autocomplete="off" placeholder="glpat-…"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Bitbucket</summary>
+              <div class="cfg-fields">
+                <label><span>Username</span><input type="text" id="cfg-bb-user" autocomplete="off"></label>
+                <label><span>App password</span><input type="password" id="cfg-bb-token" autocomplete="off"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Gateways &amp; Confluence <span class="src-hint">(helper CLI)</span></summary>
+              <div class="cfg-fields">
+                <p class="src-note">Used by the local helper, not the browser. Run <code>node helper/collect.mjs</code> to pull specs and produce a bundle you Import above.</p>
+                <label><span>AWS region</span><input type="text" id="cfg-aws-region" autocomplete="off" placeholder="us-east-1"></label>
+                <label><span>AWS access key</span><input type="password" id="cfg-aws-key" autocomplete="off"></label>
+                <label><span>AWS secret</span><input type="password" id="cfg-aws-secret" autocomplete="off"></label>
+                <label><span>Kong Admin URL</span><input type="text" id="cfg-kong-url" autocomplete="off" placeholder="https://kong-admin:8001"></label>
+                <label><span>Kong token</span><input type="password" id="cfg-kong-token" autocomplete="off"></label>
+                <label><span>Tyk URL</span><input type="text" id="cfg-tyk-url" autocomplete="off" placeholder="https://tyk-dashboard"></label>
+                <label><span>Tyk token</span><input type="password" id="cfg-tyk-token" autocomplete="off"></label>
+                <label><span>Confluence base URL</span><input type="text" id="cfg-conf-url" autocomplete="off" placeholder="https://org.atlassian.net/wiki"></label>
+                <label><span>Confluence token</span><input type="password" id="cfg-conf-token" autocomplete="off"></label>
+              </div>
+            </details>
+            <label class="cfg-show"><input type="checkbox" id="cfg-show"> Show values</label>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a href="https://apis.io">APIs.io</a>
+      <a href="https://apicommons.org">API Commons</a>
+      <a href="https://github.com/api-commons/api-reusability/issues">GitHub Issues</a>
+      <a href="https://github.com/api-commons/api-reusability">GitHub</a>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
