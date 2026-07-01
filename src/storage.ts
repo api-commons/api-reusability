@@ -78,15 +78,37 @@ export interface Config {
   sources?: Record<string, boolean>; // search source toggles (apis.io/github/gitlab/bitbucket)
   // helper-only connectors (keys held here so the Config UI is complete; the
   // actual calls run in the local helper CLI, never from the browser)
-  confluenceBaseUrl?: string;
-  confluenceToken?: string;
+  // catalogs
+  backstageBaseUrl?: string;
+  backstageToken?: string;
+  swaggerhubOwner?: string;
+  swaggerhubToken?: string;
+  postmanApiKey?: string;
+  // gateways
   awsRegion?: string;
-  awsKey?: string;
-  awsSecret?: string;
   kongAdminUrl?: string;
   kongToken?: string;
   tykUrl?: string;
   tykToken?: string;
+  apigeeOrg?: string;
+  apigeeToken?: string;
+  azureApimService?: string;
+  azureToken?: string;
+  mulesoftOrgId?: string;
+  mulesoftToken?: string;
+  // runtime & events
+  k8sContext?: string;
+  kafkaRegistryUrl?: string;
+  kafkaRegistryAuth?: string;
+  // security & observability
+  crunch42Token?: string;
+  datadogApiKey?: string;
+  datadogAppKey?: string;
+  discoveryUrl?: string;
+  discoveryToken?: string;
+  // docs
+  confluenceBaseUrl?: string;
+  confluenceToken?: string;
   // scoring
   weights?: Weights;
 }

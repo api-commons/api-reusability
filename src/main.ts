@@ -740,9 +740,21 @@ function renderAbout() {
 
 // ---- config -----------------------------------------------------------------
 const CFG_MAP: Array<[string, keyof Config]> = [
+  // search sources
   ['cfg-gh-token', 'githubToken'], ['cfg-gl-token', 'gitlabToken'], ['cfg-bb-user', 'bitbucketUser'], ['cfg-bb-token', 'bitbucketToken'],
-  ['cfg-aws-region', 'awsRegion'], ['cfg-aws-key', 'awsKey'], ['cfg-aws-secret', 'awsSecret'],
-  ['cfg-kong-url', 'kongAdminUrl'], ['cfg-kong-token', 'kongToken'], ['cfg-tyk-url', 'tykUrl'], ['cfg-tyk-token', 'tykToken'],
+  // catalogs
+  ['cfg-backstage-url', 'backstageBaseUrl'], ['cfg-backstage-token', 'backstageToken'],
+  ['cfg-swaggerhub-owner', 'swaggerhubOwner'], ['cfg-swaggerhub-token', 'swaggerhubToken'], ['cfg-postman-key', 'postmanApiKey'],
+  // gateways
+  ['cfg-aws-region', 'awsRegion'], ['cfg-kong-url', 'kongAdminUrl'], ['cfg-kong-token', 'kongToken'], ['cfg-tyk-url', 'tykUrl'], ['cfg-tyk-token', 'tykToken'],
+  ['cfg-apigee-org', 'apigeeOrg'], ['cfg-apigee-token', 'apigeeToken'], ['cfg-azure-service', 'azureApimService'], ['cfg-azure-token', 'azureToken'],
+  ['cfg-mulesoft-org', 'mulesoftOrgId'], ['cfg-mulesoft-token', 'mulesoftToken'],
+  // runtime & events
+  ['cfg-k8s-context', 'k8sContext'], ['cfg-kafka-url', 'kafkaRegistryUrl'], ['cfg-kafka-auth', 'kafkaRegistryAuth'],
+  // security & observability
+  ['cfg-42crunch-token', 'crunch42Token'], ['cfg-datadog-api', 'datadogApiKey'], ['cfg-datadog-app', 'datadogAppKey'],
+  ['cfg-discovery-url', 'discoveryUrl'], ['cfg-discovery-token', 'discoveryToken'],
+  // docs
   ['cfg-conf-url', 'confluenceBaseUrl'], ['cfg-conf-token', 'confluenceToken'],
 ];
 (function initConfig() {
@@ -777,7 +789,7 @@ const CFG_MAP: Array<[string, keyof Config]> = [
   }
   $<HTMLInputElement>('#cfg-show').addEventListener('change', (e) => {
     const type = (e.target as HTMLInputElement).checked ? 'text' : 'password';
-    for (const id of ['cfg-gh-token', 'cfg-gl-token', 'cfg-bb-token', 'cfg-aws-key', 'cfg-aws-secret', 'cfg-kong-token', 'cfg-tyk-token', 'cfg-conf-token'])
+    for (const id of ['cfg-gh-token', 'cfg-gl-token', 'cfg-bb-token', 'cfg-backstage-token', 'cfg-swaggerhub-token', 'cfg-postman-key', 'cfg-kong-token', 'cfg-tyk-token', 'cfg-apigee-token', 'cfg-azure-token', 'cfg-mulesoft-token', 'cfg-kafka-auth', 'cfg-42crunch-token', 'cfg-datadog-api', 'cfg-datadog-app', 'cfg-discovery-token', 'cfg-conf-token'])
       $<HTMLInputElement>('#' + id).type = type;
   });
 })();

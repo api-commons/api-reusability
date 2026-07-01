@@ -181,17 +181,54 @@
                 <label><span>App password</span><input type="password" id="cfg-bb-token" autocomplete="off"></label>
               </div>
             </details>
+            <p class="src-note helper-note">The sources below run in the local <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">helper CLI</a>, not the browser (they're behind the firewall). Keys are held here so the config is in one place; the helper reads them from its own env / <code>helper-config.json</code>. Run <code>node helper/collect.mjs --all</code>, then Import the bundle above.</p>
             <details class="cfg-group">
-              <summary>Gateways &amp; Confluence <span class="src-hint">(helper CLI)</span></summary>
+              <summary>API catalogs <span class="src-hint">(helper)</span></summary>
               <div class="cfg-fields">
-                <p class="src-note">Used by the local helper, not the browser. Run <code>node helper/collect.mjs</code> to pull specs and produce a bundle you Import above.</p>
-                <label><span>AWS region</span><input type="text" id="cfg-aws-region" autocomplete="off" placeholder="us-east-1"></label>
-                <label><span>AWS access key</span><input type="password" id="cfg-aws-key" autocomplete="off"></label>
-                <label><span>AWS secret</span><input type="password" id="cfg-aws-secret" autocomplete="off"></label>
+                <label><span>Backstage base URL</span><input type="text" id="cfg-backstage-url" autocomplete="off" placeholder="https://backstage.internal"></label>
+                <label><span>Backstage token</span><input type="password" id="cfg-backstage-token" autocomplete="off"></label>
+                <label><span>SwaggerHub owner</span><input type="text" id="cfg-swaggerhub-owner" autocomplete="off" placeholder="my-org"></label>
+                <label><span>SwaggerHub token</span><input type="password" id="cfg-swaggerhub-token" autocomplete="off"></label>
+                <label><span>Postman API key</span><input type="password" id="cfg-postman-key" autocomplete="off" placeholder="PMAK-…"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Enterprise gateways <span class="src-hint">(helper)</span></summary>
+              <div class="cfg-fields">
+                <label><span>AWS region <span class="src-hint">(uses AWS CLI)</span></span><input type="text" id="cfg-aws-region" autocomplete="off" placeholder="us-east-1"></label>
                 <label><span>Kong Admin URL</span><input type="text" id="cfg-kong-url" autocomplete="off" placeholder="https://kong-admin:8001"></label>
                 <label><span>Kong token</span><input type="password" id="cfg-kong-token" autocomplete="off"></label>
                 <label><span>Tyk URL</span><input type="text" id="cfg-tyk-url" autocomplete="off" placeholder="https://tyk-dashboard"></label>
                 <label><span>Tyk token</span><input type="password" id="cfg-tyk-token" autocomplete="off"></label>
+                <label><span>Apigee org</span><input type="text" id="cfg-apigee-org" autocomplete="off"></label>
+                <label><span>Apigee token</span><input type="password" id="cfg-apigee-token" autocomplete="off" placeholder="ya29.…"></label>
+                <label><span>Azure APIM service</span><input type="text" id="cfg-azure-service" autocomplete="off"></label>
+                <label><span>Azure token</span><input type="password" id="cfg-azure-token" autocomplete="off"></label>
+                <label><span>MuleSoft org id</span><input type="text" id="cfg-mulesoft-org" autocomplete="off"></label>
+                <label><span>MuleSoft token</span><input type="password" id="cfg-mulesoft-token" autocomplete="off"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Runtime &amp; events <span class="src-hint">(helper)</span></summary>
+              <div class="cfg-fields">
+                <label><span>Kubernetes context <span class="src-hint">(uses kubectl)</span></span><input type="text" id="cfg-k8s-context" autocomplete="off" placeholder="prod"></label>
+                <label><span>Kafka schema registry URL</span><input type="text" id="cfg-kafka-url" autocomplete="off" placeholder="https://schema-registry:8081"></label>
+                <label><span>Kafka registry auth</span><input type="password" id="cfg-kafka-auth" autocomplete="off" placeholder="Basic …"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Security &amp; observability <span class="src-hint">(helper)</span></summary>
+              <div class="cfg-fields">
+                <label><span>42Crunch token</span><input type="password" id="cfg-42crunch-token" autocomplete="off"></label>
+                <label><span>Datadog API key</span><input type="password" id="cfg-datadog-api" autocomplete="off"></label>
+                <label><span>Datadog app key</span><input type="password" id="cfg-datadog-app" autocomplete="off"></label>
+                <label><span>Discovery export URL <span class="src-hint">(Salt / Noname / Traceable / …)</span></span><input type="text" id="cfg-discovery-url" autocomplete="off" placeholder="https://scanner/export"></label>
+                <label><span>Discovery token</span><input type="password" id="cfg-discovery-token" autocomplete="off"></label>
+              </div>
+            </details>
+            <details class="cfg-group">
+              <summary>Docs — Confluence <span class="src-hint">(helper)</span></summary>
+              <div class="cfg-fields">
                 <label><span>Confluence base URL</span><input type="text" id="cfg-conf-url" autocomplete="off" placeholder="https://org.atlassian.net/wiki"></label>
                 <label><span>Confluence token</span><input type="password" id="cfg-conf-token" autocomplete="off"></label>
               </div>

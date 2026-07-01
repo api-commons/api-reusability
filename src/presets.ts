@@ -14,47 +14,44 @@ export interface PresetSet {
 const base = import.meta.env.BASE_URL; // '/' on Pages
 const file = (id: string, label: string): PresetSet => ({ id, label, kind: 'file', url: `${base}presets/${id}.json` });
 
-export const PRESET_SETS: PresetSet[] = [
-  { id: 'sample', label: 'Demo org — 25 synthetic APIs', kind: 'builtin' },
-  // AI
-  file('openai', 'OpenAI — AI'),
-  file('claude', 'Claude — AI'),
-  file('chatgpt', 'ChatGPT — AI'),
-  // Payments, fintech & crypto
-  file('stripe', 'Stripe — payments'),
+// The synthetic demo (autoload default) stays pinned first; the real providers
+// are listed alphabetically. Labels are "Name — category".
+const DEMO: PresetSet = { id: 'sample', label: 'Demo org — 25 synthetic APIs', kind: 'builtin' };
+const PROVIDERS: PresetSet[] = [
   file('adyen', 'Adyen — payments'),
-  file('mastercard', 'Mastercard — payments'),
-  file('klarna', 'Klarna — payments'),
-  file('worldpay', 'Worldpay — payments'),
-  file('plaid', 'Plaid — fintech'),
-  file('fireblocks', 'Fireblocks — crypto'),
-  file('binance', 'Binance — crypto'),
-  // Commerce & retail
-  file('shopify', 'Shopify — commerce'),
+  file('asana', 'Asana — productivity'),
+  file('atlassian', 'Atlassian — developer tools'),
   file('bigcommerce', 'BigCommerce — commerce'),
-  file('vtex', 'VTEX — commerce'),
+  file('binance', 'Binance — crypto'),
+  file('box', 'Box — storage'),
+  file('chainstack', 'Chainstack — infrastructure'),
+  file('chatgpt', 'ChatGPT — AI'),
+  file('claude', 'Claude — AI'),
+  file('cloudflare', 'Cloudflare — infrastructure'),
+  file('coveo', 'Coveo — search'),
   file('ebay', 'eBay — commerce'),
+  file('fastly', 'Fastly — infrastructure'),
+  file('fireblocks', 'Fireblocks — crypto'),
+  file('github', 'GitHub — developer tools'),
+  file('hubspot', 'HubSpot — CRM'),
+  file('klarna', 'Klarna — payments'),
+  file('mastercard', 'Mastercard — payments'),
+  file('openai', 'OpenAI — AI'),
+  file('plaid', 'Plaid — fintech'),
+  file('sendgrid', 'SendGrid — email'),
+  file('sentry', 'Sentry — developer tools'),
+  file('shopify', 'Shopify — commerce'),
+  file('slack', 'Slack — communications'),
+  file('stripe', 'Stripe — payments'),
+  file('twilio', 'Twilio — communications'),
+  file('vtex', 'VTEX — commerce'),
   file('walmart', 'Walmart — commerce'),
   file('webflow', 'Webflow — commerce'),
-  // Developer tools & infrastructure
-  file('github', 'GitHub — developer tools'),
-  file('atlassian', 'Atlassian — developer tools'),
-  file('sentry', 'Sentry — developer tools'),
-  file('cloudflare', 'Cloudflare — infrastructure'),
-  file('fastly', 'Fastly — infrastructure'),
-  file('chainstack', 'Chainstack — infrastructure'),
-  file('box', 'Box — storage'),
-  // CRM, SaaS & enterprise
-  file('zendesk', 'Zendesk — CRM'),
-  file('hubspot', 'HubSpot — CRM'),
-  file('asana', 'Asana — productivity'),
-  file('coveo', 'Coveo — search'),
   file('workday', 'Workday — HR'),
-  // Communications & messaging
-  file('twilio', 'Twilio — communications'),
-  file('slack', 'Slack — communications'),
-  file('sendgrid', 'SendGrid — email'),
-];
+  file('worldpay', 'Worldpay — payments'),
+  file('zendesk', 'Zendesk — CRM'),
+].sort((a, b) => a.label.localeCompare(b.label));
+export const PRESET_SETS: PresetSet[] = [DEMO, ...PROVIDERS];
 
 export async function loadPresetSet(id: string): Promise<Sample[]> {
   const set = PRESET_SETS.find((s) => s.id === id);
