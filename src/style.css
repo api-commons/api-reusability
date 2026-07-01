@@ -183,3 +183,12 @@ ul.conso li { margin: 0.25rem 0; }
 .meta-foot button:hover { border-color: var(--accent); }
 .report-body ol, .report-body ul { color: var(--muted); padding-left: 1.2rem; line-height: 1.5; }
 .report-body li { margin: 0.2rem 0; }
+
+/* report: per-API cards with operational-property chips */
+.api-cards { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.3rem 0 0.6rem; }
+.api-card { border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.6rem; }
+.api-card-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
+.api-card-name { font-weight: 600; color: #cdd9e5; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.api-card-stats { flex: 1 1 auto; text-align: right; }
+.prop-chip.ghost { background: transparent; border: 1px dashed var(--line); color: var(--muted); cursor: pointer; }
+.prop-chip.ghost:hover { border-color: var(--accent); color: var(--fg); }

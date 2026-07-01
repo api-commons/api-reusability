@@ -16,7 +16,7 @@ import { scoreApisJson } from './apisjson-score';
 import { rollup, type GroupBy } from './grouping';
 import { buildIndex, buildApiApisJson } from './apisjson-index';
 import { buildReportMarkdown, buildReportJson } from './report';
-import { COMMON_PROPERTIES, propDef, resolveProperties } from './properties';
+import { COMMON_PROPERTIES, propDef, resolveProperties, hasType } from './properties';
 import { parseHar } from './har';
 import { parseDoc, detectLang, isObject } from './doc';
 import { initEngage } from './engage';
@@ -408,6 +408,7 @@ function renderReport() {
   const inv = loadInventory();
   const body = $('#report-body');
   if (!inv.length) { body.innerHTML = '<p class="store-empty">No APIs in the inventory yet.</p>'; return; }
+  const recById = new Map(inv.map((a) => [a.id, a]));
   const j = buildReportJson({ inventory: inv, scores, duplication: dup });
   const groupTable = (by: GroupBy) => {
     const rows = rollup(inv, scores, by);
@@ -424,13 +425,60 @@ function renderReport() {
       <div class="stat"><span class="stat-n">${j.summary.duplicateSchemas}</span><span class="stat-l">dup schemas</span></div>
     </div>
     ${groupTable('org')}${groupTable('team')}${groupTable('domain')}
-    <h3>Per-API grades</h3>
-    <table class="scorecard"><thead><tr><th>API</th><th>Grade</th><th>Composite</th><th>Design</th><th>Metadata</th><th>Dup</th></tr></thead><tbody>
-      ${[...scores].sort((a, b) => b.composite - a.composite).map((s) => `<tr><td>${esc(s.name)}</td><td><span class="${gradeClass(s.letter)}">${s.letter}</span></td><td>${s.composite}</td><td>${s.axisA.score}</td><td>${s.axisB.score}</td><td>${Math.round(s.penalty * 100)}%</td></tr>`).join('')}
-    </tbody></table>
+    <h3>Per-API grades &amp; operational metadata</h3>
+    <p class="src-note">Solid chips are properties the API has (× to remove). Ghost chips are gaps — click one to add it.</p>
+    <div class="api-cards">
+      ${[...scores].sort((a, b) => b.composite - a.composite).map((s) => {
+        const rec = recById.get(s.id);
+        const props = rec ? resolveProperties(rec) : [];
+        const present = props.map((p) => `<span class="prop-chip" data-id="${s.id}" data-type="${esc(p.type)}"><span class="prop-t">${esc(propDef(p.type)?.label || p.type)}</span>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.url)}">↗</a>` : ''}<button class="prop-x" type="button" title="Remove">&times;</button></span>`).join('');
+        const missing = COMMON_PROPERTIES.filter((d) => !hasType(props, d)).map((d) => `<span class="prop-chip ghost" data-id="${s.id}" data-type="${esc(d.type)}" title="${esc(d.help)} — click to add">+ ${esc(d.label)}</span>`).join('');
+        return `<div class="api-card">
+          <div class="api-card-head">
+            <span class="${gradeClass(s.letter)}">${s.letter}</span>
+            <span class="api-card-name" title="${esc(s.name)}">${esc(s.name)}</span>
+            <span class="api-card-stats muted small">reuse ${s.composite} · design ${s.axisA.score} · meta ${s.axisB.score} · dup ${Math.round(s.penalty * 100)}%</span>
+          </div>
+          <div class="prop-chips">${present}${missing}</div>
+        </div>`;
+      }).join('')}
+    </div>
     ${dup.consolidations.length ? `<h3>Consolidation opportunities</h3><ul class="conso">${dup.consolidations.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
   `;
 }
+
+// Add / remove an operational property on a record from the Report tab. url=null
+// removes it; a string adds/updates it. Re-scores and re-renders everywhere.
+function setRecordProperty(id: string, type: string, url: string | null) {
+  const rec = getApi(id);
+  if (!rec) return;
+  const props = resolveProperties(rec).map((p) => ({ ...p }));
+  if (url === null) rec.properties = props.filter((p) => p.type !== type);
+  else {
+    const ex = props.find((p) => p.type === type);
+    if (ex) ex.url = url; else props.push({ type, url });
+    rec.properties = props;
+  }
+  delete rec.apisjson;
+  upsertApi(rec);
+  recompute();
+  renderReport(); renderInventory();
+  if (activeId === id) { properties = resolveProperties(rec).map((p) => ({ ...p })); renderProps(); }
+}
+// One delegated listener (survives report re-renders).
+$('#report-body').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const chip = target.closest<HTMLElement>('.prop-chip');
+  if (!chip) return;
+  const id = chip.dataset.id!, type = chip.dataset.type!;
+  if (target.closest('.prop-x')) { setRecordProperty(id, type, null); return; }
+  if (chip.classList.contains('ghost')) {
+    const label = propDef(type)?.label || type;
+    const url = window.prompt(`URL for “${label}”:`, '');
+    if (url === null) return; // cancelled
+    setRecordProperty(id, type, url.trim());
+  }
+});
 $('#export-md').addEventListener('click', () => {
   const inv = loadInventory(); if (!inv.length) return window.alert('Nothing to report yet.');
   downloadFile('api-reusability-report.md', buildReportMarkdown({ inventory: inv, scores, duplication: dup }), 'text/markdown');
