@@ -159,15 +159,20 @@ $<HTMLInputElement>('#har-file').addEventListener('change', async (e) => {
   const files = (e.target as HTMLInputElement).files;
   if (!files?.length) return;
   let added = 0;
+  let firstId: string | null = null;
   const errs: string[] = [];
   for (const f of Array.from(files)) {
     try {
       const apis = parseHar(await f.text());
       for (const api of apis) {
+        const id = newId();
+        // Each host becomes an OpenAPI, wrapped in an APIs.json with any
+        // evidence-derived operational properties (e.g. a detected Login).
         upsertApi({
-          id: newId(), name: api.host, lang: 'yaml', openapi: api.openapiYaml,
-          grouping: readGrouping(), provenance: { source: 'har', url: f.name }, savedAt: Date.now(),
+          id, name: api.host, lang: 'yaml', openapi: api.openapiYaml, properties: api.properties,
+          grouping: readGrouping(), provenance: { source: 'har', url: `https://${api.host}` }, savedAt: Date.now(),
         });
+        firstId ??= id;
         added++;
       }
     } catch (err) {
@@ -175,8 +180,21 @@ $<HTMLInputElement>('#har-file').addEventListener('change', async (e) => {
     }
   }
   (e.target as HTMLInputElement).value = '';
-  recompute(); renderInventory(); switchTab('inventory');
-  status(`Added ${added} API${added === 1 ? '' : 's'} from HAR${errs.length ? ` · ${errs.length} error(s)` : ''}`, !errs.length);
+  recompute();
+  // Load the first synthesized API so its OpenAPI + APIs.json are visible right away.
+  if (firstId) {
+    const rec = getApi(firstId)!;
+    activeId = rec.id; lang = 'yaml'; provenance = rec.provenance;
+    properties = resolveProperties(rec).map((p) => ({ ...p }));
+    $<HTMLInputElement>('#api-name').value = rec.name;
+    writeGrouping(rec.grouping);
+    const m = editor.getModel(); if (m) monaco.editor.setModelLanguage(m, 'yaml');
+    editor.setValue(rec.openapi);
+    $('#lang-yaml').classList.add('active'); $('#lang-json').classList.remove('active');
+    showProvenance(); renderProps();
+  }
+  renderInventory(); switchTab('inventory');
+  status(`Added ${added} API${added === 1 ? '' : 's'} from HAR — converted to OpenAPI & wrapped in APIs.json${errs.length ? ` · ${errs.length} error(s)` : ''}`, !errs.length);
   if (errs.length) window.alert(errs.join('\n'));
 });
 

@@ -6,6 +6,7 @@
 // per host — the evidence-based inventory the tool then scores.
 import { stringify } from 'yaml';
 import { isObject } from './doc';
+import type { ApiProperty } from './storage';
 
 interface HarHeader { name: string; value: string }
 interface HarEntry {
@@ -26,6 +27,7 @@ export interface HarApi {
   host: string;
   openapiYaml: string;
   operationCount: number;
+  properties: ApiProperty[]; // operational APIs.json properties derived from the traffic
 }
 
 // Skip infrastructure/telemetry headers that aren't part of the API contract.
@@ -94,6 +96,8 @@ export function parseHar(text: string): HarApi[] {
   // host -> path -> "METHOD" -> accumulator
   const byHost = new Map<string, Map<string, Map<string, OpAcc>>>();
   const pathParams = new Map<string, Set<string>>(); // host+path -> param names
+  const authByHost = new Map<string, string | true>(); // host -> auth endpoint path (or true if only header-based)
+  const authRe = /(?:^|\/)(login|log-in|signin|sign-in|oauth|oauth2|token|authorize|authenticate|auth|sso)(?:\/|$)/i;
 
   for (const e of entries) {
     const url = e.request?.url;
@@ -112,6 +116,12 @@ export function parseHar(text: string): HarApi[] {
     const { path, params } = templatePath(u.pathname);
     const ppKey = `${host}${path}`;
     if (params.length) pathParams.set(ppKey, new Set([...(pathParams.get(ppKey) || []), ...params]));
+
+    // Detect an authentication signal for this host: an auth-looking path (kept
+    // as the Login URL) or an auth header/api-key on any request.
+    const hdrNames = (e.request?.headers || []).map((h) => (h.name || '').toLowerCase());
+    if (authRe.test(u.pathname)) authByHost.set(host, path);
+    else if (!authByHost.has(host) && (hdrNames.includes('authorization') || hdrNames.includes('x-api-key') || hdrNames.includes('api-key'))) authByHost.set(host, true);
 
     const paths = byHost.get(host) || byHost.set(host, new Map()).get(host)!;
     const ops = paths.get(path) || paths.set(path, new Map()).get(path)!;
@@ -179,7 +189,12 @@ export function parseHar(text: string): HarApi[] {
       servers: [{ url: `https://${host}` }],
       paths: oapiPaths,
     };
-    out.push({ host, openapiYaml: stringify(doc), operationCount: opCount });
+    // Starter operational properties derived from the traffic.
+    const properties: ApiProperty[] = [];
+    const auth = authByHost.get(host);
+    if (auth) properties.push({ type: 'Login', url: `https://${host}${typeof auth === 'string' ? auth : ''}` });
+
+    out.push({ host, openapiYaml: stringify(doc), operationCount: opCount, properties });
   }
 
   return out.sort((a, b) => b.operationCount - a.operationCount);
