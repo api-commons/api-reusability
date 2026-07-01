@@ -347,12 +347,16 @@ function renderInventory() {
     ? shown.map((a) => {
         const s = scoreFor(a.id);
         const g = [a.grouping.org, a.grouping.team, a.grouping.domain].filter(Boolean).join(' · ');
+        const props = resolveProperties(a);
+        const present = props.map((p) => `<span class="prop-chip" data-id="${a.id}" data-type="${esc(p.type)}"><span class="prop-t">${esc(propDef(p.type)?.label || p.type)}</span><button class="prop-x" type="button" title="Remove">&times;</button></span>`).join('');
+        const missing = COMMON_PROPERTIES.filter((d) => !hasType(props, d)).map((d) => `<span class="prop-chip ghost" data-id="${a.id}" data-type="${esc(d.type)}" title="${esc(d.help)} — click to add">+ ${esc(d.label)}</span>`).join('');
         return `<li class="${a.id === activeId ? 'active' : ''}" data-id="${a.id}">
           <span class="${gradeClass(s?.letter || 'F')}" title="composite reusability">${s ? s.composite : '—'}</span>
           <span class="store-name" title="${esc(a.name)}">${esc(a.name)}</span>
           <span class="store-meta">${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'}</span>
           <button class="store-btn" type="button">Load</button>
           <button class="store-del" type="button" title="Remove">&times;</button>
+          <div class="inv-props prop-chips">${present}${missing}</div>
         </li>`;
       }).join('')
     : `<li class="store-empty">${query ? 'No matches — nothing like that exists yet, safe to build.' : 'No APIs yet — search, upload a HAR, or import a spec, then Add to inventory.'}</li>`;
@@ -377,6 +381,21 @@ function renderInventory() {
 let intentT: number | undefined;
 $<HTMLInputElement>('#intent').addEventListener('input', () => { clearTimeout(intentT); intentT = window.setTimeout(renderInventory, 150); });
 $('#intent-clear').addEventListener('click', () => { $<HTMLInputElement>('#intent').value = ''; renderInventory(); });
+// Add / remove operational properties straight from the inventory list (one
+// delegated listener — reuses setRecordProperty, same as the Report tab).
+$('#inventory-list').addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const chip = target.closest<HTMLElement>('.prop-chip');
+  if (!chip) return;
+  e.stopPropagation();
+  const id = chip.dataset.id!, type = chip.dataset.type!;
+  if (target.closest('.prop-x')) { setRecordProperty(id, type, null); return; }
+  if (chip.classList.contains('ghost')) {
+    const url = window.prompt(`URL for “${propDef(type)?.label || type}”:`, '');
+    if (url === null) return;
+    setRecordProperty(id, type, url.trim());
+  }
+});
 
 // ---- sample data ------------------------------------------------------------
 function seedSamples(force: boolean) {

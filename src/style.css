@@ -192,3 +192,7 @@ ul.conso li { margin: 0.25rem 0; }
 .api-card-stats { flex: 1 1 auto; text-align: right; }
 .prop-chip.ghost { background: transparent; border: 1px dashed var(--line); color: var(--muted); cursor: pointer; }
 .prop-chip.ghost:hover { border-color: var(--accent); color: var(--fg); }
+
+/* inventory: operational-property chips row under each item */
+.store-list .inv-props { grid-column: 1 / -1; grid-row: 3; margin-top: 0.4rem; }
+.store-list .inv-props .prop-chip { font-size: 0.72rem; padding: 1px 5px 1px 7px; }
