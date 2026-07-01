@@ -173,6 +173,13 @@ $('#search').addEventListener('click', runSearch);
 qInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
 document.addEventListener('click', (e) => { if (!results.hidden && !(e.target as HTMLElement).closest('.search-wrap')) hideResults(); });
 
+// A stable identity for a discovered artifact, so we can skip ones already found.
+function provKey(p: Provenance): string {
+  if (p.source === 'apis.io') return `apis.io:${p.aid || p.url || ''}`;
+  if (p.source === 'github' || p.source === 'gitlab' || p.source === 'bitbucket') return `${p.source}:${p.repo || ''}/${p.path || ''}@${p.ref || ''}`;
+  return `${p.source}:${p.url || ''}`;
+}
+
 // ---- scan: pull every artifact of the chosen type at the source -------------
 async function runScan() {
   const srcLabel = sourceSelect.options[sourceSelect.selectedIndex]?.textContent || currentSource;
@@ -187,20 +194,24 @@ async function runScan() {
   }
   if (!hits.length) { msg(currentArtifact.searchNote || `No ${currentArtifact.label} artifacts found on ${srcLabel}.`); return; }
 
-  let added = 0, failed = 0, firstId: string | null = null;
+  // Skip anything already in the inventory (by provenance identity).
+  const seen = new Set(loadInventory().map((a) => provKey(a.provenance)));
+  let added = 0, failed = 0, skipped = 0, firstId: string | null = null;
   for (let i = 0; i < hits.length; i++) {
     const h = hits[i];
+    const prov: Provenance = h.source === 'apis.io'
+      ? { source: 'apis.io', url: h.url, aid: h.aid }
+      : { source: h.source, repo: h.repo, path: h.path, ref: h.ref, url: h.url };
+    if (seen.has(provKey(prov))) { skipped++; continue; }
     msg(`Scanning ${srcLabel}… loading ${i + 1}/${hits.length}: ${h.name}`);
     try {
       const content = await loadHit(h, gitTokens());
-      const prov: Provenance = h.source === 'apis.io'
-        ? { source: 'apis.io', url: h.url, aid: h.aid }
-        : { source: h.source, repo: h.repo, path: h.path, ref: h.ref, url: h.url };
       const id = newId();
       upsertApi({
         id, name: h.name || h.aid || 'artifact', lang: detectLang(content), openapi: content,
         properties: [], grouping: readGrouping(), provenance: prov, savedAt: Date.now(),
       });
+      seen.add(provKey(prov));
       firstId ??= id;
       added++;
     } catch {
@@ -220,7 +231,7 @@ async function runScan() {
     showProvenance(); renderProps();
   }
   renderInventory(); switchTab('inventory'); hideResults();
-  status(`Scanned ${srcLabel}: added ${added} ${currentArtifact.label} artifact${added === 1 ? '' : 's'}${failed ? ` · ${failed} couldn't load` : ''}.`, !!added);
+  status(`Scanned ${srcLabel}: added ${added} ${currentArtifact.label} artifact${added === 1 ? '' : 's'}${skipped ? ` · skipped ${skipped} already found` : ''}${failed ? ` · ${failed} couldn't load` : ''}.`, !!added || !!skipped);
 }
 $('#scan').addEventListener('click', runScan);
 
@@ -228,22 +239,28 @@ $('#scan').addEventListener('click', runScan);
 $<HTMLInputElement>('#har-file').addEventListener('change', async (e) => {
   const files = (e.target as HTMLInputElement).files;
   if (!files?.length) return;
-  let added = 0;
+  let added = 0, updated = 0;
   let firstId: string | null = null;
   const errs: string[] = [];
+  // Existing HAR-derived hosts → reuse their record instead of duplicating.
+  const harByHost = new Map(loadInventory().filter((a) => a.provenance.source === 'har').map((a) => [a.provenance.url, a.id]));
   for (const f of Array.from(files)) {
     try {
       const apis = parseHar(await f.text());
       for (const api of apis) {
-        const id = newId();
+        const url = `https://${api.host}`;
+        const existingId = harByHost.get(url);
+        const id = existingId || newId();
         // Each host becomes an OpenAPI, wrapped in an APIs.json with any
         // evidence-derived operational properties (e.g. a detected Login).
+        const prior = existingId ? getApi(existingId) : undefined;
         upsertApi({
-          id, name: api.host, lang: 'yaml', openapi: api.openapiYaml, properties: api.properties,
-          grouping: readGrouping(), provenance: { source: 'har', url: `https://${api.host}` }, savedAt: Date.now(),
+          id, name: api.host, lang: 'yaml', openapi: api.openapiYaml,
+          properties: prior?.properties?.length ? prior.properties : api.properties, // keep any properties you added
+          grouping: prior?.grouping ?? readGrouping(), provenance: { source: 'har', url }, savedAt: Date.now(),
         });
+        if (existingId) updated++; else { harByHost.set(url, id); added++; }
         firstId ??= id;
-        added++;
       }
     } catch (err) {
       errs.push(`${f.name}: ${err instanceof Error ? err.message : String(err)}`);
@@ -264,7 +281,7 @@ $<HTMLInputElement>('#har-file').addEventListener('change', async (e) => {
     showProvenance(); renderProps();
   }
   renderInventory(); switchTab('inventory');
-  status(`Added ${added} API${added === 1 ? '' : 's'} from HAR — converted to OpenAPI & wrapped in APIs.json${errs.length ? ` · ${errs.length} error(s)` : ''}`, !errs.length);
+  status(`HAR → OpenAPI + APIs.json: added ${added}${updated ? ` · updated ${updated} already found` : ''}${errs.length ? ` · ${errs.length} error(s)` : ''}`, !errs.length);
   if (errs.length) window.alert(errs.join('\n'));
 });
 
