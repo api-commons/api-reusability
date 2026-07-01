@@ -5,7 +5,7 @@
 // a static JSON bundle per provider under public/presets/, committed to the repo
 // and fetched on demand by the app (all/* is not part of this repo, so these are
 // generated locally, not in CI).
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { parse } from 'yaml';
 
@@ -13,6 +13,7 @@ const ROOT = '/Users/kinlane/GitHub/all';
 const OUT = new URL('../public/presets/', import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
+// `id` = output/set name; `dir` = the all/* repo (defaults to id).
 const PROVIDERS = [
   { id: 'twilio', org: 'Twilio', domain: 'communications' },
   { id: 'stripe', org: 'Stripe', domain: 'payments' },
@@ -20,6 +21,11 @@ const PROVIDERS = [
   { id: 'github', org: 'GitHub', domain: 'developer-tools' },
   { id: 'sendgrid', org: 'SendGrid', domain: 'email' },
   { id: 'plaid', org: 'Plaid', domain: 'fintech' },
+  { id: 'openai', org: 'OpenAI', domain: 'ai' },
+  { id: 'shopify', org: 'Shopify', domain: 'commerce' },
+  { id: 'slack', org: 'Slack', domain: 'communications' },
+  { id: 'claude', dir: 'anthropic', org: 'Claude', domain: 'ai' },
+  { id: 'chatgpt', org: 'ChatGPT', domain: 'ai' },
 ];
 
 // Map the many apis.yml property types down to the app's operational catalog,
@@ -57,11 +63,27 @@ function resolveOpenApi(dir, url) {
   return null;
 }
 
+// Map a raw property list to deduped catalog properties.
+function mapProps(list) {
+  const seen = new Set();
+  const out = [];
+  for (const x of list) {
+    if (!x || !x.type || !x.url) continue;
+    const ct = catalogType(x.type);
+    if (!ct || seen.has(ct)) continue;
+    seen.add(ct);
+    out.push({ type: ct, url: String(x.url) });
+  }
+  return out;
+}
+
 for (const p of PROVIDERS) {
-  const dir = join(ROOT, p.id);
+  const dir = join(ROOT, p.dir || p.id);
   if (!existsSync(join(dir, 'apis.yml'))) { console.warn(`skip ${p.id}: no apis.yml`); continue; }
   const doc = parse(readFileSync(join(dir, 'apis.yml'), 'utf8'));
   const common = Array.isArray(doc.common) ? doc.common : [];
+  // Provider-wide operational properties (used for glob-fallback entries).
+  const providerProps = mapProps([...(doc.apis || []).flatMap((a) => (Array.isArray(a.properties) ? a.properties : [])), ...common]);
   const apis = [];
   let skipped = 0;
 
@@ -88,15 +110,7 @@ for (const p of PROVIDERS) {
 
     // Curated operational properties mapped to the app's catalog (per-API +
     // provider-common), deduped by catalog type.
-    const seen = new Set();
-    const properties = [];
-    for (const x of [...props, ...common]) {
-      if (!x || !x.type || !x.url) continue;
-      const ct = catalogType(x.type);
-      if (!ct || seen.has(ct)) continue;
-      seen.add(ct);
-      properties.push({ type: ct, url: String(x.url) });
-    }
+    const properties = mapProps([...props, ...common]);
 
     apis.push({
       name: a.name || basename(file).replace(/\.(ya?ml|json)$/i, ''),
@@ -104,6 +118,22 @@ for (const p of PROVIDERS) {
       grouping: { org: p.org, team: (Array.isArray(a.tags) && a.tags[0]) ? String(a.tags[0]) : 'Core', domain: p.domain },
       properties,
     });
+  }
+
+  // Fallback: some repos (e.g. ChatGPT) don't wire OpenAPI into apis.yml. If we
+  // built nothing, glob the openapi/ dir directly for real specs.
+  if (apis.length === 0) {
+    const oapiDir = join(dir, 'openapi');
+    if (existsSync(oapiDir)) {
+      for (const fn of readdirSync(oapiDir)) {
+        if (!/\.(ya?ml|json)$/i.test(fn) || /ratings|subway|overlay|search/i.test(fn)) continue;
+        let t; try { t = readFileSync(join(oapiDir, fn), 'utf8'); } catch { continue; }
+        if (!isSpec(t) || Buffer.byteLength(t) > MAX_SPEC_BYTES) { skipped++; continue; }
+        const m = t.match(/^\s{0,4}title:\s*(.+)$/m);
+        const name = m ? m[1].trim().replace(/^["']|["']$/g, '') : fn.replace(/\.(ya?ml|json)$/i, '');
+        apis.push({ name, openapi: t, grouping: { org: p.org, team: 'Core', domain: p.domain }, properties: providerProps });
+      }
+    }
   }
 
   const outFile = join(OUT, `${p.id}.json`);

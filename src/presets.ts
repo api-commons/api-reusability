@@ -20,6 +20,11 @@ export const PRESET_SETS: PresetSet[] = [
   { id: 'github', label: 'GitHub — real APIs (all/*)', kind: 'file', url: `${base}presets/github.json` },
   { id: 'sendgrid', label: 'SendGrid — real APIs (all/*)', kind: 'file', url: `${base}presets/sendgrid.json` },
   { id: 'plaid', label: 'Plaid — real APIs (all/*)', kind: 'file', url: `${base}presets/plaid.json` },
+  { id: 'openai', label: 'OpenAI — real APIs (all/*)', kind: 'file', url: `${base}presets/openai.json` },
+  { id: 'shopify', label: 'Shopify — real APIs (all/*)', kind: 'file', url: `${base}presets/shopify.json` },
+  { id: 'slack', label: 'Slack — real APIs (all/*)', kind: 'file', url: `${base}presets/slack.json` },
+  { id: 'claude', label: 'Claude — real APIs (all/*)', kind: 'file', url: `${base}presets/claude.json` },
+  { id: 'chatgpt', label: 'ChatGPT — real APIs (all/*)', kind: 'file', url: `${base}presets/chatgpt.json` },
 ];
 
 export async function loadPresetSet(id: string): Promise<Sample[]> {
