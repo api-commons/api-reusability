@@ -217,3 +217,14 @@ ul.conso li { margin: 0.25rem 0; }
 .savebar .field.field-name { flex: 1 1 8rem; }
 .savebar .field input { width: 100%; flex: none; }
 .savebar .field .grp { width: 82px; }
+
+/* keep the Report from overflowing horizontally on wide specs (e.g. GitHub) */
+.report-body { overflow-x: hidden; overflow-wrap: anywhere; }
+.report-body code { overflow-wrap: anywhere; word-break: break-all; }
+table.scorecard { table-layout: fixed; }
+table.scorecard th, table.scorecard td { overflow-wrap: anywhere; word-break: break-word; }
+ul.conso li { overflow-wrap: anywhere; }
+.api-card { min-width: 0; }
+.api-card-head { min-width: 0; }
+.api-card-name { min-width: 0; }
+.api-cards, .prop-chips { max-width: 100%; }
