@@ -234,3 +234,16 @@ ul.conso li { overflow-wrap: anywhere; }
 .filterbar input { flex: 1 1 auto; width: auto; min-width: 0; }
 #intent-clear { flex: 0 0 auto; background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 5px; width: 28px; height: 28px; font-size: 0.9rem; line-height: 1; cursor: pointer; }
 #intent-clear:hover { color: var(--fg); border-color: var(--accent); }
+
+/* make the example-set dropdown prominent */
+.samples-bar { flex-wrap: wrap; padding: 0.55rem 0.6rem; background: #232323; }
+.set-label { flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); }
+.samples-bar select {
+  flex: 1 1 12rem; max-width: none; min-width: 8rem;
+  background: var(--bg); color: var(--fg);
+  border: 2px solid var(--accent); border-radius: 6px;
+  padding: 7px 10px; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+}
+.samples-bar select:hover { filter: brightness(1.1); }
+.samples-bar .btn-accent { padding: 7px 14px; font-size: 0.88rem; font-weight: 700; }
+.samples-bar #samples-note { flex-basis: 100%; order: 3; margin-top: 2px; }
