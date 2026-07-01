@@ -158,3 +158,28 @@ ul.conso li { margin: 0.25rem 0; }
 .samples-bar button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
 .samples-bar button:hover:not(:disabled) { border-color: var(--accent); }
 .samples-bar button:disabled { opacity: 0.45; cursor: default; }
+
+/* operational metadata (APIs.json) panel */
+.meta-panel { border-top: 1px solid var(--line); background: #1f1f1f; max-height: 40%; overflow-y: auto; }
+.meta-panel > summary { cursor: pointer; padding: 0.5rem 0.6rem; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; list-style: none; }
+.meta-panel > summary::-webkit-details-marker { display: none; }
+.axisb-readout { font-weight: 700; font-size: 0.78rem; border-radius: 5px; padding: 1px 7px; color: #1e1e1e; }
+.axisb-readout.grade-A { background: #3fb950; }
+.axisb-readout.grade-C { background: #ffc107; }
+.axisb-readout.grade-F { background: #f14c4c; color: #fff; }
+.meta-body { padding: 0 0.6rem 0.6rem; }
+.meta-add { display: flex; gap: 0.4rem; margin: 0.3rem 0 0.5rem; }
+.meta-add select { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px; font-size: 0.82rem; }
+.meta-add input { flex: 1 1 auto; min-width: 4rem; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; font-size: 0.82rem; }
+.meta-add .btn-accent { background: var(--accent); color: #06243d; border: 0; border-radius: 5px; padding: 5px 11px; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+.prop-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.prop-chip { display: inline-flex; align-items: center; gap: 0.3rem; background: #2d2d30; border: 1px solid var(--line); border-radius: 12px; padding: 2px 6px 2px 9px; font-size: 0.78rem; }
+.prop-chip .prop-t { color: #cdd9e5; }
+.prop-chip a { color: var(--accent); text-decoration: none; }
+.prop-chip .prop-x { background: none; border: 0; color: var(--muted); font-size: 0.95rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.prop-chip .prop-x:hover { color: var(--error); }
+.meta-foot { margin-top: 0.55rem; }
+.meta-foot button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
+.meta-foot button:hover { border-color: var(--accent); }
+.report-body ol, .report-body ul { color: var(--muted); padding-left: 1.2rem; line-height: 1.5; }
+.report-body li { margin: 0.2rem 0; }

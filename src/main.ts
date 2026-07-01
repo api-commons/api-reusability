@@ -6,15 +6,17 @@ import {
   loadInventory, upsertApi, removeApi, getApi, loadLedger, addReuseEvent, removeReuseEvent,
   loadConfig, saveConfig, weightsOf, newId,
   hasSamples, clearSamples, wasSeeded, markSeeded,
-  type ApiRecord, type Provenance, type Grouping, type Config, type ReuseEvent,
+  type ApiRecord, type ApiProperty, type Provenance, type Grouping, type Config, type ReuseEvent,
 } from './storage';
 import { SAMPLES } from './samples';
 import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
 import { scoreInventory, type ApiScore } from './scoring';
+import { scoreApisJson } from './apisjson-score';
 import { rollup, type GroupBy } from './grouping';
-import { buildIndex } from './apisjson-index';
+import { buildIndex, buildApiApisJson } from './apisjson-index';
 import { buildReportMarkdown, buildReportJson } from './report';
+import { COMMON_PROPERTIES, propDef, resolveProperties } from './properties';
 import { parseHar } from './har';
 import { parseDoc, detectLang, isObject } from './doc';
 import { initEngage } from './engage';
@@ -137,11 +139,13 @@ async function selectHit(h: Hit) {
       ? { source: 'apis.io', url: h.url, aid: h.aid } as Provenance
       : { source: h.source, repo: h.repo, path: h.path, ref: h.ref, url: h.url };
     activeId = null;
+    properties = [];
     $<HTMLInputElement>('#api-name').value = h.name;
     setContent(content);
     showProvenance();
+    renderProps();
     hideResults();
-    status('Loaded — set grouping and Add to inventory.');
+    status('Loaded — set grouping, add properties, and Add to inventory.');
   } catch (e) {
     msg(`Could not load: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -188,10 +192,14 @@ $<HTMLInputElement>('#import-file').addEventListener('change', async (e) => {
     let n = 0;
     for (const a of doc.apis) {
       if (!a.openapi) continue;
+      const props = resolveProperties({
+        properties: Array.isArray(a.properties) ? a.properties : undefined,
+        apisjson: a.apisjson ? (typeof a.apisjson === 'string' ? a.apisjson : stringifyYaml(a.apisjson)) : undefined,
+      });
       upsertApi({
         id: newId(), name: a.name || 'imported', lang: a.lang === 'json' ? 'json' : 'yaml',
         openapi: typeof a.openapi === 'string' ? a.openapi : stringifyYaml(a.openapi),
-        apisjson: a.apisjson ? (typeof a.apisjson === 'string' ? a.apisjson : stringifyYaml(a.apisjson)) : undefined,
+        properties: props,
         grouping: a.grouping || {}, provenance: a.provenance || { source: 'helper', gateway: a.gateway }, savedAt: Date.now(),
       });
       n++;
@@ -204,11 +212,13 @@ $<HTMLInputElement>('#import-file').addEventListener('change', async (e) => {
   lang = detectLang(text);
   provenance = { source: 'url', url: f.name };
   activeId = null;
+  properties = [];
   $<HTMLInputElement>('#api-name').value = (doc?.info?.title || f.name).toString();
   $('#lang-yaml').classList.toggle('active', lang === 'yaml'); $('#lang-json').classList.toggle('active', lang === 'json');
   setContent(text);
   showProvenance();
-  status('Loaded file — set grouping and Add to inventory.');
+  renderProps();
+  status('Loaded file — set grouping, add properties, and Add to inventory.');
 });
 
 // ---- grouping + add to inventory --------------------------------------------
@@ -225,6 +235,69 @@ function writeGrouping(g: Grouping) {
   $<HTMLInputElement>('#grp-team').value = g.team || '';
   $<HTMLInputElement>('#grp-domain').value = g.domain || '';
 }
+
+// ---- operational properties (APIs.json) editor ------------------------------
+// `properties` is the working set for the API in the editor — the active record's
+// properties, or a pending set that gets attached when Added to inventory.
+let properties: ApiProperty[] = [];
+
+const propTypeSelect = $<HTMLSelectElement>('#prop-type');
+propTypeSelect.innerHTML = COMMON_PROPERTIES.map((p) => `<option value="${p.type}" title="${esc(p.help)}">${esc(p.label)}</option>`).join('');
+
+function currentDescription(): string {
+  const d = parseDoc(editor.getValue());
+  return d?.info?.description ? String(d.info.description) : '';
+}
+function renderProps() {
+  const chips = $('#prop-chips');
+  chips.innerHTML = properties.length
+    ? properties.map((p, i) => {
+        const label = propDef(p.type)?.label || p.type;
+        return `<span class="prop-chip" data-i="${i}"><span class="prop-t">${esc(label)}</span>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.url)}">↗</a>` : ''}<button class="prop-x" type="button" title="Remove">&times;</button></span>`;
+      }).join('')
+    : '<span class="muted small">No properties yet — add Documentation, Sign Up, Login, Sandbox…</span>';
+  chips.querySelectorAll<HTMLElement>('.prop-chip').forEach((el) => {
+    el.querySelector<HTMLButtonElement>('.prop-x')?.addEventListener('click', () => {
+      properties.splice(Number(el.dataset.i), 1);
+      persistProps(); renderProps();
+    });
+  });
+  // live Axis B readout for the API in view
+  const b = scoreApisJson({
+    description: currentDescription(),
+    tags: [readGrouping().org, readGrouping().team, readGrouping().domain].filter(Boolean) as string[],
+    properties,
+  });
+  const el = $('#axisb-readout');
+  el.textContent = `B ${b.score}`;
+  el.className = 'axisb-readout ' + gradeClass(b.score >= 80 ? 'A' : b.score >= 60 ? 'C' : 'F').split(' ')[1];
+}
+// If editing a saved API, persist property edits immediately and re-score.
+function persistProps() {
+  if (activeId) {
+    const rec = getApi(activeId);
+    if (rec) { rec.properties = [...properties]; delete rec.apisjson; upsertApi(rec); recompute(); renderInventory(); }
+  }
+}
+$('#prop-add').addEventListener('click', () => {
+  const type = propTypeSelect.value;
+  const url = $<HTMLInputElement>('#prop-url').value.trim();
+  if (!type) return;
+  const existing = properties.find((p) => p.type === type);
+  if (existing) existing.url = url; // update URL if the type already present
+  else properties.push({ type, url });
+  $<HTMLInputElement>('#prop-url').value = '';
+  persistProps(); renderProps();
+});
+$<HTMLInputElement>('#prop-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#prop-add').click(); });
+$('#download-api-apisjson').addEventListener('click', () => {
+  const name = $<HTMLInputElement>('#api-name').value.trim() || 'api';
+  const rec: ApiRecord = (activeId && getApi(activeId)) || {
+    id: 'preview', name, lang, openapi: editor.getValue(), properties,
+    grouping: readGrouping(), provenance, savedAt: Date.now(),
+  };
+  downloadFile(`${name.replace(/[^a-z0-9._-]+/gi, '-')}.apis.yaml`, buildApiApisJson({ ...rec, properties }, scoreFor(rec.id)));
+});
 $('#add-inventory').addEventListener('click', () => {
   const content = editor.getValue().trim();
   if (!content) { status('Nothing to add — load or paste a spec first.', false); return; }
@@ -234,8 +307,8 @@ $('#add-inventory').addEventListener('click', () => {
   }
   const name = $<HTMLInputElement>('#api-name').value.trim() || parsed?.info?.title || 'Untitled API';
   const rec: ApiRecord = activeId && getApi(activeId)
-    ? { ...getApi(activeId)!, name, lang, openapi: content, grouping: readGrouping(), savedAt: Date.now() }
-    : { id: newId(), name, lang, openapi: content, grouping: readGrouping(), provenance, savedAt: Date.now() };
+    ? { ...getApi(activeId)!, name, lang, openapi: content, properties: [...properties], apisjson: undefined, grouping: readGrouping(), savedAt: Date.now() }
+    : { id: newId(), name, lang, openapi: content, properties: [...properties], grouping: readGrouping(), provenance, savedAt: Date.now() };
   activeId = rec.id;
   upsertApi(rec);
   recompute(); renderInventory();
@@ -288,12 +361,13 @@ function renderInventory() {
     li.querySelector<HTMLButtonElement>('.store-btn')?.addEventListener('click', () => {
       const a = getApi(id); if (!a) return;
       activeId = a.id; lang = a.lang; provenance = a.provenance;
+      properties = resolveProperties(a).map((p) => ({ ...p }));
       $('#lang-yaml').classList.toggle('active', lang === 'yaml'); $('#lang-json').classList.toggle('active', lang === 'json');
       $<HTMLInputElement>('#api-name').value = a.name;
       writeGrouping(a.grouping);
       const m = editor.getModel(); if (m) monaco.editor.setModelLanguage(m, lang === 'json' ? 'json' : 'yaml');
       editor.setValue(a.openapi);
-      showProvenance(); renderInventory();
+      showProvenance(); renderProps(); renderInventory();
     });
     li.querySelector<HTMLButtonElement>('.store-del')?.addEventListener('click', () => {
       removeApi(id); if (id === activeId) activeId = null; recompute(); renderInventory(); populateLedgerApis();
@@ -309,7 +383,7 @@ function seedSamples(force: boolean) {
   if (force) clearSamples();
   for (const s of SAMPLES) {
     upsertApi({
-      id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, apisjson: s.apisjson,
+      id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, properties: s.properties,
       grouping: s.grouping, provenance: { source: 'sample' }, savedAt: Date.now(),
     });
   }
@@ -410,8 +484,8 @@ function renderRubric() {
     <p>Enterprises keep re-implementing the same capability across silos not because teams are bad at APIs, but because they can't <em>find</em>, <em>trust</em>, or <em>compose</em> what already exists. This tool makes reusability a measurable, published definition — so “reuse” isn't left undefined.</p>
     <h3>Axis A — OpenAPI design (how reusable is the interface?)</h3>
     <p>A transparent, weighted checklist over the OpenAPI: API-level description, <code>operationId</code>s, documented operations &amp; parameters, success-response schemas, error responses, security schemes, servers, tags, consistent path casing, and — most heavily weighted — <strong>schema reuse via <code>components</code> + <code>$ref</code></strong> rather than inline shapes. A spec you can generate an SDK or agent tool from is a reusable one.</p>
-    <h3>Axis B — APIs.json metadata (how discoverable &amp; adoptable is it?)</h3>
-    <p>Reuse also needs findability and support: a rich description, documentation, linked OpenAPI, support/contact, terms of service, license, tags, and companion artifacts (MCP / Plans / Rate Limits). This is reusability “as defined by apis.json.”</p>
+    <h3>Axis B — operational metadata (can a developer actually adopt it?)</h3>
+    <p>Reuse also needs findability, self-service onboarding, and support. Every API is wrapped in a simple <strong>APIs.json</strong>, and you attach the operational properties that matter — weighted highest are the self-service onboarding signals: <strong>Documentation, Sign Up, Login, and Sandbox</strong> (can a consumer find, register for, and try the API without a meeting?), then Support, Pricing, Terms of Service, License, Status, and SDK. Add or remove them on any loaded API and watch this score move live.</p>
     <h3>Cross-API duplication (is it already built elsewhere?)</h3>
     <p>Across the whole inventory we detect repeated paths, near-identical schemas, and shared parameters/headers — the “three teams already built that” signal — and surface consolidation opportunities. Heavily-duplicated APIs carry a penalty.</p>
     <h3>Composite grade</h3>
@@ -423,13 +497,50 @@ function renderRubric() {
 // ---- tabs -------------------------------------------------------------------
 function switchTab(name: string) {
   document.querySelectorAll<HTMLButtonElement>('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  for (const id of ['inventory', 'report', 'ledger', 'rubric', 'config']) ($('#tab-' + id) as HTMLElement).hidden = id !== name;
+  for (const id of ['inventory', 'report', 'ledger', 'rubric', 'about', 'config']) ($('#tab-' + id) as HTMLElement).hidden = id !== name;
   if (name === 'report') renderReport();
   if (name === 'ledger') { populateLedgerApis(); renderLedger(); }
   if (name === 'rubric') renderRubric();
+  if (name === 'about') renderAbout();
 }
 document.querySelectorAll<HTMLButtonElement>('.tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab!)));
 $('#nav-rubric').addEventListener('click', (e) => { e.preventDefault(); switchTab('rubric'); });
+
+// ---- about ------------------------------------------------------------------
+function renderAbout() {
+  $('#about-body').innerHTML = `
+    <h2>About this tool</h2>
+    <p><strong>API Reusability</strong> helps an organization answer a question most enterprises can't: <em>how reusable are the APIs we already have — and where are three teams quietly building the same thing?</em> It runs entirely in your browser; nothing is uploaded to a server, and any keys you enter stay in this browser's local storage.</p>
+
+    <h3>How it works</h3>
+    <ol>
+      <li><strong>Discover</strong> evidence of APIs from wherever they live:
+        <ul>
+          <li><strong>APIs.io</strong> catalog search (no key needed)</li>
+          <li><strong>GitHub / GitLab / Bitbucket</strong> code search (your token, in Config)</li>
+          <li><strong>HAR upload</strong> — drop a browser/proxy traffic capture and the app synthesizes an evidence-based OpenAPI from the real requests (paths, parameters, headers, response shapes)</li>
+          <li><strong>Gateways &amp; Confluence</strong> via the local <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">helper CLI</a> (AWS API Gateway, Kong, Tyk) — a browser can't reach those safely, so a tiny Node script pulls the specs into a bundle you <em>Import</em></li>
+        </ul>
+      </li>
+      <li><strong>Index</strong> — every API is normalized to OpenAPI and wrapped in a simple <strong>APIs.json</strong>, where you attach the operational metadata a developer needs to adopt it: documentation, sign-up, login, sandbox, support, pricing, and more. Download one API's APIs.json from the editor, or the whole inventory as a single index from the top bar.</li>
+      <li><strong>Score</strong> — each API is graded on two axes plus cross-API duplication, then rolled up by <strong>org / team / domain</strong>. See the <a href="#" id="about-to-rubric">Rubric</a> tab for exactly how.</li>
+    </ol>
+
+    <h3>What you can do with it</h3>
+    <ul>
+      <li><strong>Intent search</strong> (Inventory tab) — type what you're about to build; the app surfaces existing APIs that already do it, <em>before</em> a team reinvents it.</li>
+      <li><strong>Report</strong> — an org scorecard with per-team/domain grades, duplication hotspots, and consolidation opportunities; export as Markdown or JSON, or publish to Confluence via the helper.</li>
+      <li><strong>Reuse ledger</strong> — record when a team adopts an existing API instead of building new, so reuse can actually be reported, not just assumed.</li>
+      <li><strong>Tune the definition</strong> — reuse means something a little different in every org, so the scoring weights are yours to adjust in Config.</li>
+    </ul>
+
+    <h3>Getting started</h3>
+    <p>The app loads with <strong>25 sample APIs</strong> (two orgs, deliberate duplication) so you can explore every feature immediately. Use <em>Clear samples</em> when you're ready to bring your own. Load one of the samples into the editor to see its OpenAPI and its operational properties, and watch the Axis B readout move as you add or remove them.</p>
+
+    <p class="src-note">Part of the <a href="https://apicommons.org" target="_blank" rel="noopener">API Commons</a> family, alongside <a href="https://apis.io" target="_blank" rel="noopener">APIs.io</a> and the Spotlight tools. Open source on <a href="https://github.com/api-commons/api-reusability" target="_blank" rel="noopener">GitHub</a>.</p>
+  `;
+  $('#about-to-rubric')?.addEventListener('click', (e) => { e.preventDefault(); switchTab('rubric'); });
+}
 
 // ---- config -----------------------------------------------------------------
 const CFG_MAP: Array<[string, keyof Config]> = [
@@ -496,6 +607,7 @@ if (loadInventory().length === 0 && !wasSeeded()) seedSamples(false);
 recompute();
 renderInventory();
 updateSamplesBar();
+renderProps();
 showProvenance();
 
 initEngage(() => {

@@ -19,6 +19,15 @@ export interface Grouping {
   domain?: string;
 }
 
+// An APIs.json property — the operational metadata that makes an API adoptable
+// (Documentation, SignUp, Login, Sandbox, Support, Pricing, …). type + url is the
+// apis.json shape; these feed the Axis B (operational reusability) score.
+export interface ApiProperty {
+  type: string;
+  name?: string;
+  url: string;
+}
+
 // One discovered API in the inventory. `openapi` is the normalized spec text
 // (from apis.io, GitHub, a HAR synthesis, or the helper bundle). `apisjson` is
 // the optional apis.json entry describing it (metadata richness / Axis B).
@@ -27,7 +36,8 @@ export interface ApiRecord {
   name: string;
   lang: 'yaml' | 'json';
   openapi: string; // the OpenAPI document text
-  apisjson?: string; // optional apis.json fragment (YAML or JSON) describing this API
+  properties?: ApiProperty[]; // operational APIs.json properties (docs/login/signup/sandbox/…)
+  apisjson?: string; // legacy: raw apis.json fragment (still read on import for back-compat)
   grouping: Grouping;
   provenance: Provenance;
   savedAt: number;

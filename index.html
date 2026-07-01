@@ -55,6 +55,25 @@
           <button id="add-inventory" class="btn-accent" title="Score this spec and add it to the inventory">Add to inventory</button>
           <span id="save-status" class="muted small"></span>
         </div>
+
+        <details class="meta-panel" open>
+          <summary>
+            Operational metadata (APIs.json)
+            <span id="axisb-readout" class="axisb-readout" title="Axis B — operational reusability of the API in view">B —</span>
+          </summary>
+          <div class="meta-body">
+            <p class="src-note">Wrap this API in an APIs.json and add the properties a developer needs to adopt it — documentation, sign-up, login, sandbox, and more. Each one lifts the operational reusability score.</p>
+            <div class="meta-add">
+              <select id="prop-type" title="Property type"></select>
+              <input id="prop-url" type="url" placeholder="https://…" autocomplete="off" />
+              <button id="prop-add" class="btn-accent" type="button" title="Add this property">Add</button>
+            </div>
+            <div id="prop-chips" class="prop-chips"></div>
+            <div class="meta-foot">
+              <button id="download-api-apisjson" type="button" title="Download this single API wrapped as APIs.json">Download APIs.json</button>
+            </div>
+          </div>
+        </details>
       </section>
 
       <!-- RIGHT: inventory / report / ledger / rubric / config -->
@@ -64,6 +83,7 @@
           <button class="tab" data-tab="report" type="button">Report</button>
           <button class="tab" data-tab="ledger" type="button">Reuse ledger <span class="badge" id="ledger-count">0</span></button>
           <button class="tab" data-tab="rubric" type="button">Rubric</button>
+          <button class="tab" data-tab="about" type="button">About</button>
           <button class="tab" data-tab="config" type="button">Config</button>
         </div>
 
@@ -107,6 +127,11 @@
         <!-- Rubric -->
         <div class="tab-panel" id="tab-rubric" hidden>
           <div id="rubric-body" class="report-body"></div>
+        </div>
+
+        <!-- About -->
+        <div class="tab-panel" id="tab-about" hidden>
+          <div id="about-body" class="report-body"></div>
         </div>
 
         <!-- Config -->

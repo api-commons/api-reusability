@@ -5,9 +5,21 @@
 import { scoreOpenApi, type OpenApiScore } from './openapi-score';
 import { scoreApisJson, type ApisJsonScore } from './apisjson-score';
 import { analyzeDuplication, type DuplicationReport } from './duplication';
-import { letterFor } from './doc';
+import { resolveProperties } from './properties';
+import { letterFor, parseDoc } from './doc';
 import type { ApiRecord, Weights } from './storage';
 import { DEFAULT_WEIGHTS } from './storage';
+
+// Build the Axis B input for a record from its OpenAPI description, grouping
+// tags, and operational properties.
+function axisBInput(a: ApiRecord) {
+  const d = parseDoc(a.openapi);
+  return {
+    description: d?.info?.description ? String(d.info.description) : undefined,
+    tags: [a.grouping?.org, a.grouping?.team, a.grouping?.domain].filter(Boolean) as string[],
+    properties: resolveProperties(a),
+  };
+}
 
 export interface ApiScore {
   id: string;
@@ -28,7 +40,7 @@ export function scoreInventory(inv: ApiRecord[], weights: Weights = DEFAULT_WEIG
 
   const scores: ApiScore[] = inv.map((a) => {
     const axisA = scoreOpenApi(a.openapi);
-    const axisB = scoreApisJson(a.apisjson);
+    const axisB = scoreApisJson(axisBInput(a));
     const penalty = duplication.penalties[a.id] ?? 0;
     const composite = Math.round(
       (weights.openapi * axisA.score + weights.apisjson * axisB.score + weights.duplication * (1 - penalty) * 100) / wsum,

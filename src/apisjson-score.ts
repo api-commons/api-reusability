@@ -1,15 +1,17 @@
-// Axis B — APIs.json metadata richness (discoverability / operational reuse).
+// Axis B — operational reusability (APIs.json metadata richness).
 //
-// Reusability isn't only about the OpenAPI shape; it's also whether an API is
-// findable and supported. This scores the apis.json (0.21) description of an API
-// against the properties that make it adoptable: documentation, support, terms,
-// license, tags, and links to companion artifacts. Answers the "does it have
-// documentation, etc." requirement and Elsevier's "mark things as reusable".
-import { parseDoc, isObject } from './doc';
+// Reusability isn't only about the OpenAPI shape; it's whether an API is
+// findable, tryable, and supported. This scores the operational metadata a
+// consumer needs to adopt an API without a meeting: documentation, sign-up,
+// login, sandbox, support, pricing, terms, license, status. The property
+// catalog + weights live in properties.ts so the UI and the rubric never drift.
+import { COMMON_PROPERTIES, hasType } from './properties';
+import type { ApiProperty } from './storage';
 
 export interface MetaCheck {
   key: string;
   label: string;
+  weight: number;
   present: boolean;
   hint: string;
 }
@@ -17,47 +19,32 @@ export interface MetaCheck {
 export interface ApisJsonScore {
   score: number; // 0..100
   checks: MetaCheck[];
-  hasApisJson: boolean;
+  propertyCount: number;
 }
 
-// Normalize either a full apis.json doc or a single `apis[]` entry into one
-// entry object plus its property list.
-function entryOf(doc: any): { entry: Record<string, any>; props: any[] } {
-  if (!isObject(doc)) return { entry: {}, props: [] };
-  // full apis.json — take the first api entry, merge in top-level common props
-  if (Array.isArray(doc.apis) && doc.apis.length) {
-    const e = doc.apis[0];
-    const props = [...(Array.isArray(e.properties) ? e.properties : []), ...(Array.isArray(doc.common) ? doc.common : [])];
-    return { entry: e, props };
-  }
-  // already a single entry
-  const props = Array.isArray(doc.properties) ? doc.properties : [];
-  return { entry: doc, props };
+export interface ApisJsonInput {
+  description?: string;
+  tags?: string[];
+  properties: ApiProperty[];
 }
 
-const hasProp = (props: any[], types: string[]) =>
-  props.some((p) => isObject(p) && types.some((t) => String(p.type || '').toLowerCase().includes(t.toLowerCase())));
-
-export function scoreApisJson(text?: string): ApisJsonScore {
-  const doc = text ? parseDoc(text) : null;
-  const { entry, props } = entryOf(doc);
-  const hasApisJson = !!text && isObject(doc);
-
-  const desc = String(entry.description || '').trim();
-  const tags = entry.tags || (doc && doc.tags);
+export function scoreApisJson(input: ApisJsonInput): ApisJsonScore {
+  const props = input.properties || [];
+  const desc = (input.description || '').trim();
 
   const checks: MetaCheck[] = [
-    { key: 'desc', label: 'Rich description', present: desc.length >= 40, hint: 'Write a description that explains what the API is for (40+ chars).' },
-    { key: 'docs', label: 'Documentation link', present: hasProp(props, ['Documentation', 'x-documentation']), hint: 'Add a Documentation property so developers can learn the API.' },
-    { key: 'openapi', label: 'OpenAPI linked', present: hasProp(props, ['OpenAPI', 'Swagger']), hint: 'Link the OpenAPI so the interface is machine-readable.' },
-    { key: 'support', label: 'Support / contact', present: hasProp(props, ['Support', 'x-support', 'contact']), hint: 'Add a Support property (email, portal, or contact).' },
-    { key: 'terms', label: 'Terms of Service', present: hasProp(props, ['TermsOfService', 'Terms', 'x-terms']), hint: 'Publish terms of service so teams know the rules of use.' },
-    { key: 'license', label: 'License', present: hasProp(props, ['License', 'x-license']), hint: 'State a license so reuse rights are clear.' },
-    { key: 'tags', label: 'Tags / categories', present: Array.isArray(tags) ? tags.length > 0 : !!tags, hint: 'Tag the API so it surfaces in discovery.' },
-    { key: 'companions', label: 'Companion artifacts (MCP/Plans/RateLimits)', present: hasProp(props, ['MCP', 'Plans', 'RateLimits', 'x-mcp', 'x-plans', 'x-ratelimits']), hint: 'Publish MCP / Plans / Rate Limits to make the API agent- and consumer-ready.' },
+    { key: 'desc', label: 'Rich description', weight: 1, present: desc.length >= 40, hint: 'Describe what the API is for (40+ chars).' },
+    { key: 'tags', label: 'Tagged / categorized', weight: 0.5, present: !!(input.tags && input.tags.length), hint: 'Assign org/team/domain so it surfaces in discovery.' },
+    ...COMMON_PROPERTIES.map((def) => ({
+      key: def.type,
+      label: def.label,
+      weight: def.weight,
+      present: hasType(props, def),
+      hint: `Add a ${def.label} property — ${def.help}.`,
+    })),
   ];
 
-  const present = checks.filter((c) => c.present).length;
-  const score = Math.round((present / checks.length) * 100);
-  return { score, checks, hasApisJson };
+  const total = checks.reduce((s, c) => s + c.weight, 0) || 1;
+  const score = Math.round((checks.reduce((s, c) => s + (c.present ? c.weight : 0), 0) / total) * 100);
+  return { score, checks, propertyCount: props.length };
 }

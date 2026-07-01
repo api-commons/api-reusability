@@ -6,9 +6,9 @@
 //
 // Specs are generated from compact descriptors so 25 realistic docs stay tidy.
 import { stringify } from 'yaml';
-import type { Grouping } from './storage';
+import type { Grouping, ApiProperty } from './storage';
 
-export interface Sample { name: string; grouping: Grouping; openapi: string; apisjson?: string }
+export interface Sample { name: string; grouping: Grouping; openapi: string; properties: ApiProperty[] }
 
 type Quality = 'high' | 'mid' | 'low';
 
@@ -115,30 +115,28 @@ function buildOpenApi(d: Desc): string {
   return stringify(doc);
 }
 
-// Metadata richness tiers so Axis B (discoverability) also spreads across the
-// inventory: 'full' for well-run APIs, 'partial' for so-so ones, none for the rest.
-function buildApisJson(d: Desc, tier: 'full' | 'partial'): string {
+// Operational-property richness tiers so Axis B also spreads across the
+// inventory: 'full' for well-run APIs (self-service onboarding), 'partial' for
+// so-so ones, none for the rest.
+function buildProps(d: Desc, tier: 'full' | 'partial'): ApiProperty[] {
   const s = slug(d.title);
   const org = slug(d.org);
-  const all = [
-    { type: 'Documentation', url: `https://developer.${org}.example.com/${s}` },
-    { type: 'OpenAPI', url: `https://developer.${org}.example.com/${s}/openapi.yaml` },
-    { type: 'Support', url: `mailto:${slug(d.team)}@${org}.example.com` },
+  const dev = `https://developer.${org}.example.com/${s}`;
+  const make = (type: string, path: string): ApiProperty => ({ type, url: `${dev}/${path}` });
+  const full: ApiProperty[] = [
+    make('Documentation', 'docs'),
+    make('SignUp', 'signup'),
+    make('Login', 'login'),
+    make('Sandbox', 'sandbox'),
+    make('Support', 'support'),
+    make('Pricing', 'pricing'),
     { type: 'TermsOfService', url: `https://${org}.example.com/terms` },
     { type: 'License', url: 'https://spdx.org/licenses/Apache-2.0.html' },
+    make('StatusPage', 'status'),
+    make('SDK', 'sdk'),
   ];
-  return stringify({
-    specificationVersion: '0.21',
-    apis: [
-      {
-        name: d.title,
-        description: `${d.title} is the ${d.domain}-domain API owned by ${d.org}'s ${d.team} team.`,
-        tags: [d.org, d.team, d.domain],
-        // full → all five properties; partial → just docs + OpenAPI
-        properties: tier === 'full' ? all : all.slice(0, 2),
-      },
-    ],
-  });
+  // partial → the onboarding basics only
+  return tier === 'full' ? full : [make('Documentation', 'docs'), make('Login', 'login'), make('Support', 'support')];
 }
 
 // 25 descriptors. Note the deliberate overlaps: user/users, order/orders,
@@ -176,6 +174,6 @@ export const SAMPLES: Sample[] = DESCS.map((d) => ({
   name: d.title,
   grouping: { org: d.org, team: d.team, domain: d.domain },
   openapi: buildOpenApi(d),
-  // metadata richness tracks quality: high → full apis.json, mid → partial, low → none
-  apisjson: d.quality === 'high' ? buildApisJson(d, 'full') : d.quality === 'mid' ? buildApisJson(d, 'partial') : undefined,
+  // operational-property richness tracks quality: high → full, mid → partial, low → none
+  properties: d.quality === 'high' ? buildProps(d, 'full') : d.quality === 'mid' ? buildProps(d, 'partial') : [],
 }));
