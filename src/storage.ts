@@ -3,7 +3,7 @@
 // api-discovery / spotlight-validator.
 
 export interface Provenance {
-  source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'har' | 'helper' | 'url' | 'manual' | 'sample';
+  source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'swaggerhub' | 'postman' | 'har' | 'helper' | 'url' | 'manual' | 'sample';
   url?: string; // where it was found / its source URL
   repo?: string; // owner/repo (or workspace/repo)
   path?: string; // file path in the repo

@@ -181,15 +181,15 @@
                 <label><span>App password</span><input type="password" id="cfg-bb-token" autocomplete="off"></label>
               </div>
             </details>
-            <p class="src-note helper-note">The sources below run in the local <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">helper CLI</a>, not the browser (they're behind the firewall). Keys are held here so the config is in one place; the helper reads them from its own env / <code>helper-config.json</code>. Run <code>node helper/collect.mjs --all</code>, then Import the bundle above.</p>
+            <p class="src-note helper-note">Most sources below run in the local <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">helper CLI</a>, not the browser (they're behind the firewall). Keys are held here so the config is in one place; the helper reads them from its own env / <code>helper-config.json</code>. Run <code>node helper/collect.mjs --all</code>, then Import the bundle above.</p>
             <details class="cfg-group">
               <summary>API catalogs <span class="src-hint">(helper)</span></summary>
               <div class="cfg-fields">
                 <label><span>Backstage base URL</span><input type="text" id="cfg-backstage-url" autocomplete="off" placeholder="https://backstage.internal"></label>
                 <label><span>Backstage token</span><input type="password" id="cfg-backstage-token" autocomplete="off"></label>
                 <label><span>SwaggerHub owner</span><input type="text" id="cfg-swaggerhub-owner" autocomplete="off" placeholder="my-org"></label>
-                <label><span>SwaggerHub token</span><input type="password" id="cfg-swaggerhub-token" autocomplete="off"></label>
-                <label><span>Postman API key</span><input type="password" id="cfg-postman-key" autocomplete="off" placeholder="PMAK-…"></label>
+                <label><span>SwaggerHub token <span class="src-hint">(also adds SwaggerHub to Search/Scan)</span></span><input type="password" id="cfg-swaggerhub-token" autocomplete="off"></label>
+                <label><span>Postman API key <span class="src-hint">(also adds Postman to Search/Scan)</span></span><input type="password" id="cfg-postman-key" autocomplete="off" placeholder="PMAK-…"></label>
               </div>
             </details>
             <details class="cfg-group">

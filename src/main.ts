@@ -104,6 +104,8 @@ function sourceToggles(): Record<string, boolean> {
     github: !!c.githubToken,
     gitlab: !!c.gitlabToken,
     bitbucket: !!(c.bitbucketUser && c.bitbucketToken),
+    swaggerhub: !!c.swaggerhubToken,
+    postman: !!c.postmanApiKey,
   };
 }
 function populateSources() {
@@ -115,7 +117,7 @@ function populateSources() {
   // reflect availability in Config
   const status = document.querySelector('#source-status');
   if (status) {
-    const labels: Record<string, string> = { 'apis.io': 'APIs.io', github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' };
+    const labels: Record<string, string> = { 'apis.io': 'APIs.io', github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket', swaggerhub: 'SwaggerHub', postman: 'Postman' };
     status.innerHTML = Object.entries(labels).map(([id, label]) =>
       `<span class="src-state ${toggles[id] ? 'on' : 'off'}">${toggles[id] ? '●' : '○'} ${label}</span>`).join('');
   }
@@ -124,7 +126,7 @@ populateSources();
 sourceSelect.addEventListener('change', () => { currentSource = sourceSelect.value as SourceId; });
 function gitTokens(): Tokens {
   const c = loadConfig();
-  return { github: c.githubToken, gitlab: c.gitlabToken, bitbucketUser: c.bitbucketUser, bitbucket: c.bitbucketToken };
+  return { github: c.githubToken, gitlab: c.gitlabToken, bitbucketUser: c.bitbucketUser, bitbucket: c.bitbucketToken, swaggerhub: c.swaggerhubToken, postman: c.postmanApiKey };
 }
 
 // ---- search -----------------------------------------------------------------
