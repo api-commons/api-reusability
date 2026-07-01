@@ -712,12 +712,12 @@ function renderAbout() {
       <li><strong>Discover</strong> evidence of APIs from wherever they live:
         <ul>
           <li><strong>APIs.io</strong> catalog search (no key needed)</li>
-          <li><strong>GitHub / GitLab / Bitbucket</strong> code search (your token, in Config)</li>
+          <li><strong>GitHub / GitLab / Bitbucket</strong> code search — a source appears in the dropdown as soon as you add its key in Config. <strong>Search</strong> a source by keyword, or hit <strong>Scan</strong> to pull every artifact of a type from it straight into the inventory</li>
           <li><strong>HAR upload</strong> — drop a browser/proxy traffic capture and the app synthesizes an evidence-based OpenAPI from the real requests (paths, parameters, headers, response shapes)</li>
           <li><strong>Gateways &amp; Confluence</strong> via the local <a href="https://github.com/api-commons/api-reusability/tree/main/helper" target="_blank" rel="noopener">helper CLI</a> (AWS API Gateway, Kong, Tyk) — a browser can't reach those safely, so a tiny Node script pulls the specs into a bundle you <em>Import</em></li>
         </ul>
       </li>
-      <li><strong>Index</strong> — every API is normalized to OpenAPI and wrapped in a simple <strong>APIs.json</strong>, where you attach the operational metadata a developer needs to adopt it: documentation, sign-up, login, sandbox, support, pricing, and more. Download one API's APIs.json from the editor, or the whole inventory as a single index from the top bar.</li>
+      <li><strong>Index</strong> — every API is normalized to OpenAPI and wrapped in a simple <strong>APIs.json</strong>, where you attach the metadata that makes it adoptable: <em>operational</em> (documentation, sign-up, sandbox, rate limits, webhooks…) and <em>composable</em> (Arazzo workflows, MCP server, agent skills). Download one API's APIs.json from the editor, or the whole inventory as a single index from the top bar.</li>
       <li><strong>Score</strong> — each API is graded on three axes (design, operational, composability) plus cross-API duplication, then rolled up by <strong>org / team / domain</strong>. See the <a href="#" id="about-to-rubric">Rubric</a> tab for exactly how.</li>
     </ol>
 
@@ -730,7 +730,8 @@ function renderAbout() {
     </ul>
 
     <h3>Getting started</h3>
-    <p>The app loads with <strong>25 sample APIs</strong> (two orgs, deliberate duplication) so you can explore every feature immediately. Use <em>Clear samples</em> when you're ready to bring your own. Load one of the samples into the editor to see its OpenAPI and its operational properties, and watch the Axis B readout move as you add or remove them.</p>
+    <p>The app loads with a <strong>synthetic demo org</strong> (25 APIs, deliberate duplication and gaps) so you can explore every feature immediately — and it grades low on purpose, because that's what a typical internal API estate looks like. From the <strong>example-set selector</strong> at the top of the Inventory tab you can also load <strong>30+ real providers</strong> (Stripe, Twilio, GitHub, Claude, HubSpot, Plaid, and more, generated from public specs) and <em>stack</em> several to compare them side by side in the Report. Use <em>Clear</em> when you're ready to bring your own.</p>
+    <p>Load any API into the editor to see its OpenAPI and its APIs.json properties, and watch the <strong>B</strong> (operational) and <strong>C</strong> (composability) readouts move as you add or remove properties.</p>
 
     <p class="src-note">Part of the <a href="https://apicommons.org" target="_blank" rel="noopener">API Commons</a> family, alongside <a href="https://apis.io" target="_blank" rel="noopener">APIs.io</a> and <a href="https://discover.apicommons.org" target="_blank" rel="noopener">API Discovery</a>. Open source on <a href="https://github.com/api-commons/api-reusability" target="_blank" rel="noopener">GitHub</a>.</p>
   `;
