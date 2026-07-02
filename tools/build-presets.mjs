@@ -51,6 +51,30 @@ const PROVIDERS = [
   { id: 'asana', org: 'Asana', domain: 'productivity' },
   { id: 'coveo', org: 'Coveo', domain: 'search' },
   { id: 'workday', dir: 'workday-integration', org: 'Workday', domain: 'hr' },
+  // Household names
+  { id: 'paypal', org: 'PayPal', domain: 'payments' },
+  { id: 'visa', org: 'Visa', domain: 'payments' },
+  { id: 'zoom', org: 'Zoom', domain: 'communications' },
+  { id: 'linkedin', org: 'LinkedIn', domain: 'social' },
+  { id: 'figma', org: 'Figma', domain: 'design' },
+  { id: 'gitlab', org: 'GitLab', domain: 'developer-tools' },
+  { id: 'discord', org: 'Discord', domain: 'communications' },
+  { id: 'youtube', org: 'YouTube', domain: 'media' },
+  { id: 'google', org: 'Google', domain: 'cloud' },
+  { id: 'salesforce', org: 'Salesforce', domain: 'crm' },
+  { id: 'docusign', org: 'DocuSign', domain: 'documents' },
+  { id: 'datadog', org: 'Datadog', domain: 'observability' },
+  { id: 'auth0', org: 'Auth0', domain: 'identity' },
+  // Fintech & data heavyweights
+  { id: 'bunq', org: 'bunq', domain: 'banking' },
+  { id: 'amadeus', org: 'Amadeus', domain: 'travel' },
+  { id: 'factset', org: 'FactSet', domain: 'financial-data' },
+  // Enterprise & telecom
+  { id: 'microsoft-graph', org: 'Microsoft Graph', domain: 'productivity', maxApis: 25 }, // giant specs — keep the bundle browser-friendly
+  { id: 'palo-alto', dir: 'palo-alto-networks', org: 'Palo Alto Networks', domain: 'security' },
+  { id: 'webex', dir: 'cisco-webex', org: 'Cisco Webex', domain: 'communications' },
+  { id: 'avalara', org: 'Avalara', domain: 'tax' },
+  { id: 'vapi', dir: 'vapi-ai', org: 'Vapi', domain: 'ai' },
 ];
 const MAX_APIS = 60; // keep the biggest providers' bundles browser-friendly
 
@@ -180,11 +204,12 @@ for (const p of PROVIDERS) {
   }
 
   let capped = 0;
-  if (apis.length > MAX_APIS) { capped = apis.length - MAX_APIS; apis.length = MAX_APIS; }
+  const cap = p.maxApis || MAX_APIS;
+  if (apis.length > cap) { capped = apis.length - cap; apis.length = cap; }
 
   const outFile = join(OUT, `${p.id}.json`);
   writeFileSync(outFile, JSON.stringify({ format: 'api-reusability-preset', set: p.id, org: p.org, apis }));
-  if (capped) console.log(`  (capped ${p.id} to ${MAX_APIS}, dropped ${capped})`);
+  if (capped) console.log(`  (capped ${p.id} to ${cap}, dropped ${capped})`);
   const mb = (readFileSync(outFile).length / 1024 / 1024).toFixed(2);
   console.log(`${p.id}: ${apis.length} APIs, ${skipped} skipped → ${outFile} (${mb} MB)`);
 }
