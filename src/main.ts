@@ -18,6 +18,7 @@ import { rollup, type GroupBy } from './grouping';
 import { buildIndex, buildApiApisJson } from './apisjson-index';
 import { buildReportMarkdown, buildReportJson } from './report';
 import { COMMON_PROPERTIES, propDef, resolveProperties, hasType } from './properties';
+import { embed, cosine, buildApiText } from './semantic';
 import { parseHar } from './har';
 import { parseDoc, detectLang, isObject } from './doc';
 import { initEngage } from './engage';
@@ -30,6 +31,8 @@ const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', 
 let lang: 'yaml' | 'json' = 'yaml';
 let provenance: Provenance = { source: 'manual' };
 let activeId: string | null = null;
+let semanticMode = false;
+let semanticScores: Map<string, number> | null = null;
 
 const editor = monaco.editor.create($('#editor'), {
   value: '', language: 'yaml', theme: 'vs-dark', automaticLayout: true, minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false,
@@ -443,9 +446,11 @@ function renderInventory() {
   const inv = loadInventory().sort((a, b) => b.savedAt - a.savedAt);
   $('#inv-count').textContent = String(inv.length);
   const query = $<HTMLInputElement>('#intent').value.trim();
-  const shown = query ? intentRank(inv, query) : inv;
+  const semOn = semanticMode && !!query && !!semanticScores;
+  let shown = query ? intentRank(inv, query) : inv;
+  if (semOn) shown = inv.filter((a) => (semanticScores!.get(a.id) ?? 0) >= 0.2).sort((a, b) => (semanticScores!.get(b.id) ?? 0) - (semanticScores!.get(a.id) ?? 0));
   const note = $('#intent-note') as HTMLElement;
-  if (query) { note.hidden = false; note.innerHTML = `<strong>${shown.length}</strong> reuse candidate${shown.length === 1 ? '' : 's'} match “${esc(query)}” — check these before building something new.`; }
+  if (query) { note.hidden = false; note.innerHTML = `<strong>${shown.length}</strong> ${semOn ? 'semantic ' : ''}reuse candidate${shown.length === 1 ? '' : 's'} for “${esc(query)}” — check these before building something new.`; }
   else note.hidden = true;
 
   const list = $('#inventory-list');
@@ -459,7 +464,7 @@ function renderInventory() {
         return `<li class="${a.id === activeId ? 'active' : ''}" data-id="${a.id}">
           <span class="${gradeClass(s?.letter || 'F')}" title="composite reusability">${s ? s.composite : '—'}</span>
           <span class="store-name" title="${esc(a.name)}">${esc(a.name)}</span>
-          <span class="store-meta">${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'} · C ${s?.axisC.score ?? '—'}</span>
+          <span class="store-meta">${semOn ? `<strong class="match">${Math.round((semanticScores!.get(a.id) ?? 0) * 100)}% match</strong> · ` : ''}${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'} · C ${s?.axisC.score ?? '—'}</span>
           <button class="store-btn" type="button">Load</button>
           <button class="store-del" type="button" title="Remove">&times;</button>
           <div class="inv-props prop-chips">${present}${missing}</div>
@@ -485,8 +490,70 @@ function renderInventory() {
   });
 }
 let intentT: number | undefined;
-$<HTMLInputElement>('#intent').addEventListener('input', () => { clearTimeout(intentT); intentT = window.setTimeout(renderInventory, 150); });
-$('#intent-clear').addEventListener('click', () => { $<HTMLInputElement>('#intent').value = ''; renderInventory(); });
+$<HTMLInputElement>('#intent').addEventListener('input', () => {
+  clearTimeout(intentT);
+  intentT = window.setTimeout(() => { if (semanticMode) runSemanticIntent($<HTMLInputElement>('#intent').value.trim()); else renderInventory(); }, 250);
+});
+$('#intent-clear').addEventListener('click', () => { $<HTMLInputElement>('#intent').value = ''; semanticScores = null; renderInventory(); });
+
+// ---- semantic engine (client-side embeddings) -------------------------------
+// Embed every inventory API once (cached by content), returns id -> vector.
+async function inventoryVectors(onStatus: (m: string) => void) {
+  const inv = loadInventory();
+  const texts = inv.map((a) => buildApiText(a.name, a.openapi, [a.grouping.org, a.grouping.team, a.grouping.domain].filter(Boolean) as string[]));
+  const vecs = await embed(texts, onStatus);
+  const map = new Map<string, Float32Array>();
+  inv.forEach((a, i) => map.set(a.id, vecs[i]));
+  return map;
+}
+// Semantic intent search — rank the inventory by meaning, not keywords.
+async function runSemanticIntent(query: string) {
+  if (!query) { semanticScores = null; renderInventory(); return; }
+  try {
+    const vecs = await inventoryVectors((m) => status(m));
+    const [q] = await embed([query]);
+    semanticScores = new Map();
+    for (const [id, v] of vecs) semanticScores.set(id, cosine(q, v));
+    status('Semantic match ready.');
+    renderInventory();
+  } catch (e) { status(`Semantic search failed: ${e instanceof Error ? e.message : String(e)}`, false); }
+}
+$('#intent-semantic').addEventListener('click', () => {
+  semanticMode = !semanticMode;
+  $('#intent-semantic').classList.toggle('active', semanticMode);
+  $<HTMLInputElement>('#intent').placeholder = semanticMode
+    ? 'Describe what you need — semantic match (however it’s named)'
+    : 'What are you trying to build? (intent search — find reuse candidates)';
+  const q = $<HTMLInputElement>('#intent').value.trim();
+  if (semanticMode && q) runSemanticIntent(q); else { semanticScores = null; renderInventory(); }
+});
+
+// Semantic duplication — pairwise similarity finds the same capability even when
+// paths and names differ (what the syntactic detector misses).
+async function runSemanticDuplicates() {
+  const inv = loadInventory();
+  const container = $('#semantic-dups');
+  if (inv.length < 2) { container.innerHTML = '<p class="muted small">Add at least two APIs first.</p>'; return; }
+  container.innerHTML = '<p class="muted small">Embedding APIs…</p>';
+  try {
+    const vecs = await inventoryVectors((m) => { container.innerHTML = `<p class="muted small">${esc(m)}</p>`; });
+    const nameById = new Map(inv.map((a) => [a.id, a.name] as const));
+    const ids = [...vecs.keys()];
+    const TH = 0.7;
+    const pairs: { an: string; bn: string; sim: number }[] = [];
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+      const sim = cosine(vecs.get(ids[i])!, vecs.get(ids[j])!);
+      if (sim >= TH) pairs.push({ an: nameById.get(ids[i])!, bn: nameById.get(ids[j])!, sim });
+    }
+    pairs.sort((x, y) => y.sim - x.sim);
+    const top = pairs.slice(0, 50);
+    const tone = (s: number) => (s >= 0.85 ? '#f14c4c' : s >= 0.78 ? '#f0883e' : '#ffc107');
+    container.innerHTML = top.length
+      ? `<p class="src-note"><strong>${pairs.length}</strong> pair${pairs.length === 1 ? '' : 's'} above ${Math.round(TH * 100)}% similarity — likely the same capability even when paths/names differ. Verify before consolidating.</p><ul class="conso">${top.map((p) => `<li><span class="grade" style="background:${tone(p.sim)};color:#1e1e1e">${Math.round(p.sim * 100)}%</span> <strong>${esc(p.an)}</strong> &harr; <strong>${esc(p.bn)}</strong></li>`).join('')}</ul>`
+      : '<p class="muted small">No semantic near-duplicates above the threshold.</p>';
+  } catch (e) { container.innerHTML = `<p class="src-note">Semantic scan failed: ${esc(e instanceof Error ? e.message : String(e))}</p>`; }
+}
+$('#semantic-dups-btn').addEventListener('click', runSemanticDuplicates);
 // Add / remove operational properties straight from the inventory list (one
 // delegated listener — reuses setRecordProperty, same as the Report tab).
 $('#inventory-list').addEventListener('click', (e) => {
@@ -683,7 +750,7 @@ function renderRubric() {
     <p>The dimension the providers revealed: 60%+ ship <strong>Arazzo workflows</strong>, 40%+ ship an <strong>MCP server</strong>, most ship prebuilt <strong>Integrations</strong> and <strong>Agent Skills</strong>. This is the “capabilities are the unit of reuse” thesis made measurable — can the API be composed into a workflow or called by an agent, not just hit endpoint-by-endpoint?</p>
 
     <h3>Cross-API duplication (is it already built elsewhere?)</h3>
-    <p>Across the whole inventory we detect repeated paths, near-identical schemas, and shared parameters/headers — the “three teams already built that” signal — and surface consolidation opportunities. Heavily-duplicated APIs carry a penalty.</p>
+    <p>Across the whole inventory we detect repeated paths, near-identical schemas, and shared parameters/headers — the “three teams already built that” signal — and surface consolidation opportunities. Heavily-duplicated APIs carry a penalty. The Report tab's <strong>🧠 Semantic dupes</strong> goes further: a small in-browser model finds the <em>same capability under different names/paths</em> — the sneaky duplication that string matching can't see.</p>
 
     <h3>Composite grade</h3>
     <p>Composite = <code>wA·design + wB·operational + wC·composability + wD·(1 − duplication)</code>, graded A–F. Defaults <code>0.40 / 0.25 / 0.15 / 0.20</code> — all tunable in <strong>Config → Scoring weights</strong>, because every org's definition of reuse is a little different.</p>
@@ -725,7 +792,8 @@ function renderAbout() {
 
     <h3>What you can do with it</h3>
     <ul>
-      <li><strong>Intent search</strong> (Inventory tab) — type what you're about to build; the app surfaces existing APIs that already do it, <em>before</em> a team reinvents it.</li>
+      <li><strong>Intent search</strong> (Inventory tab) — type what you're about to build; the app surfaces existing APIs that already do it, <em>before</em> a team reinvents it. Toggle <strong>🧠</strong> for <strong>semantic</strong> match — a small model runs in your browser to find APIs by meaning, not just keywords.</li>
+      <li><strong>Semantic duplicates</strong> (Report tab, 🧠) — finds the same capability under different names and paths (e.g. <code>createOrder</code> ≈ <code>POST /purchase</code>), which keyword/path matching misses.</li>
       <li><strong>Report</strong> — an org scorecard with per-team/domain grades, duplication hotspots, and consolidation opportunities; export as Markdown or JSON, or publish to Confluence via the helper.</li>
       <li><strong>Reuse ledger</strong> — record when a team adopts an existing API instead of building new, so reuse can actually be reported, not just assumed.</li>
       <li><strong>Tune the definition</strong> — reuse means something a little different in every org, so the scoring weights are yours to adjust in Config.</li>

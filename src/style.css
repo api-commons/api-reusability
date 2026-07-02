@@ -250,3 +250,12 @@ ul.conso li { overflow-wrap: anywhere; }
 
 /* dual Axis B / C readouts in the properties panel header */
 .axis-readouts { display: inline-flex; gap: 0.35rem; }
+
+/* semantic search + duplication */
+#intent-semantic { flex: 0 0 auto; background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 5px; width: 30px; height: 28px; font-size: 0.95rem; line-height: 1; cursor: pointer; }
+#intent-semantic:hover { border-color: var(--accent); color: var(--fg); }
+#intent-semantic.active { background: var(--accent); border-color: var(--accent); }
+.store-meta .match { color: var(--accent); }
+.semantic-dups { flex: 0 0 auto; max-height: 38%; overflow-y: auto; }
+.semantic-dups:not(:empty) { border-bottom: 1px solid var(--line); padding: 0.4rem 0.9rem 0.6rem; }
+.semantic-dups .conso li { display: flex; align-items: center; gap: 0.4rem; }

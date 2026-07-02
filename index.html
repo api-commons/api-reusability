@@ -96,6 +96,7 @@
         <div class="tab-panel" id="tab-inventory">
           <div class="filterbar">
             <input id="intent" type="search" placeholder="What are you trying to build? (intent search — find reuse candidates)" autocomplete="off" />
+            <button id="intent-semantic" type="button" title="Semantic search — find APIs that do this, however they're named (loads a small model in your browser the first time)">🧠</button>
             <button id="intent-clear" type="button" title="Clear">✕</button>
           </div>
           <div class="samples-bar">
@@ -114,8 +115,10 @@
           <div class="repos-add">
             <button id="export-md" type="button" title="Download the report as Markdown">Export Markdown</button>
             <button id="export-json" type="button" title="Download the report as JSON">Export JSON</button>
+            <button id="semantic-dups-btn" type="button" title="Find semantically similar APIs — the same capability under different names/paths (loads a small model in your browser)">🧠 Semantic dupes</button>
             <button id="rescore" class="btn-accent" type="button" title="Recompute all scores">Re-score</button>
           </div>
+          <div id="semantic-dups" class="semantic-dups"></div>
           <div id="report-body" class="report-body"></div>
         </div>
 
