@@ -6,6 +6,7 @@
 import { stringify } from 'yaml';
 import { parseDoc } from './doc';
 import { resolveProperties } from './properties';
+import { loadCapabilities } from './storage';
 import type { ApiRecord } from './storage';
 import type { ApiScore } from './scoring';
 
@@ -80,5 +81,17 @@ export function buildIndex(inv: ApiRecord[], scores: ApiScore[], collectionName 
     apis: inv.map((a) => entryFor(a, scoreById.get(a.id))),
     rules: [{ type: 'SpectralRules', name: 'API Commons Rulesets', url: 'https://apicommons.org/rulesets/' }],
   };
+  // Capability layer — the named units of reuse and their implementations.
+  const nameById = new Map(inv.map((a) => [a.id, a.name]));
+  const caps = loadCapabilities();
+  if (caps.length) {
+    doc['x-capabilities'] = caps.map((c) => ({
+      name: c.name,
+      ...(c.domain ? { domain: c.domain } : {}),
+      ...(c.description ? { description: c.description } : {}),
+      canonical: c.canonicalId ? nameById.get(c.canonicalId) : undefined,
+      implementations: c.apiIds.map((id) => nameById.get(id)).filter(Boolean),
+    }));
+  }
   return stringify(doc);
 }

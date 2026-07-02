@@ -150,6 +150,40 @@ export const clearSamples = () => saveInventory(loadInventory().filter((a) => a.
 export const wasSeeded = () => { try { return localStorage.getItem(SEEDED) === '1'; } catch { return false; } };
 export const markSeeded = () => { try { localStorage.setItem(SEEDED, '1'); } catch { /* */ } };
 
+// A capability — a named, typed unit of business function ("process-payment")
+// that one or more APIs implement. The unit of reuse: N APIs implementing one
+// capability IS the duplication, and the canonical one is what to standardize on.
+export interface Capability {
+  id: string;
+  name: string;
+  description?: string;
+  domain?: string;
+  apiIds: string[]; // ApiRecord ids that implement this capability
+  canonicalId?: string; // the implementation to reuse/standardize on
+  createdAt: number;
+}
+const CAPS = 'api-reusability:capabilities';
+export const loadCapabilities = (): Capability[] => read<Capability[]>(CAPS, []);
+export const saveCapabilities = (c: Capability[]) => write(CAPS, c);
+export function upsertCapability(c: Capability) {
+  const all = loadCapabilities();
+  const i = all.findIndex((x) => x.id === c.id);
+  if (i >= 0) all[i] = c;
+  else all.push(c);
+  saveCapabilities(all);
+}
+export const removeCapability = (id: string) => saveCapabilities(loadCapabilities().filter((c) => c.id !== id));
+export const getCapability = (id: string) => loadCapabilities().find((c) => c.id === id);
+// Drop a deleted API from every capability (and clear it as canonical).
+export function detachApiFromCapabilities(apiId: string) {
+  const all = loadCapabilities().map((c) => ({
+    ...c,
+    apiIds: c.apiIds.filter((x) => x !== apiId),
+    canonicalId: c.canonicalId === apiId ? undefined : c.canonicalId,
+  }));
+  saveCapabilities(all);
+}
+
 // Reuse ledger
 export const loadLedger = (): ReuseEvent[] => read<ReuseEvent[]>(LEDGER, []);
 export const saveLedger = (e: ReuseEvent[]) => write(LEDGER, e);

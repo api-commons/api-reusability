@@ -86,6 +86,7 @@
         <div class="tabs">
           <button class="tab active" data-tab="inventory" type="button">Inventory <span class="badge" id="inv-count">0</span></button>
           <button class="tab" data-tab="report" type="button">Report</button>
+          <button class="tab" data-tab="capabilities" type="button">Capabilities <span class="badge" id="cap-count">0</span></button>
           <button class="tab" data-tab="ledger" type="button">Reuse ledger <span class="badge" id="ledger-count">0</span></button>
           <button class="tab" data-tab="rubric" type="button">Rubric</button>
           <button class="tab" data-tab="about" type="button">About</button>
@@ -120,6 +121,18 @@
           </div>
           <div id="semantic-dups" class="semantic-dups"></div>
           <div id="report-body" class="report-body"></div>
+        </div>
+
+        <!-- Capabilities -->
+        <div class="tab-panel" id="tab-capabilities" hidden>
+          <p class="notice">A <strong>capability</strong> is the unit of reuse above the APIs — a named business function (e.g. <code>process-payment</code>) that one or more APIs implement. N APIs implementing one capability <em>is</em> the duplication; the canonical one is what to standardize on.</p>
+          <div class="repos-add">
+            <input id="cap-name" placeholder="capability name" autocomplete="off" />
+            <input id="cap-domain" class="grp" placeholder="domain" autocomplete="off" />
+            <button id="cap-add" class="btn-accent" type="button">Add</button>
+            <button id="cap-suggest" type="button" title="Suggest capabilities from semantic clusters of similar APIs">🧠 Suggest</button>
+          </div>
+          <div id="capabilities-body" class="report-body"></div>
         </div>
 
         <!-- Reuse ledger -->

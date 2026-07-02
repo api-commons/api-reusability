@@ -1,10 +1,21 @@
 // Reusability report — a Markdown + JSON rollup of the whole inventory: per-API
 // grades, org/team/domain scorecards, and the top consolidation opportunities.
 // This is the artifact you'd paste into Confluence/Notion or publish via the helper.
-import type { ApiRecord } from './storage';
+import { loadCapabilities, type ApiRecord } from './storage';
 import type { ApiScore } from './scoring';
 import type { DuplicationReport } from './duplication';
 import { rollup, type GroupBy } from './grouping';
+
+function capabilityRows(inventory: ApiRecord[], scores: ApiScore[]) {
+  const nameById = new Map(inventory.map((a) => [a.id, a.name]));
+  const compById = new Map(scores.map((s) => [s.id, s.composite]));
+  return loadCapabilities().map((c) => {
+    const impls = c.apiIds.filter((id) => nameById.has(id));
+    const canonId = c.canonicalId && impls.includes(c.canonicalId) ? c.canonicalId
+      : impls.slice().sort((a, b) => (compById.get(b) ?? 0) - (compById.get(a) ?? 0))[0];
+    return { name: c.name, domain: c.domain, implementations: impls.map((id) => nameById.get(id)!), canonical: canonId ? nameById.get(canonId) : undefined };
+  });
+}
 
 export interface ReportInput {
   inventory: ApiRecord[];
@@ -42,6 +53,7 @@ export function buildReportJson(input: ReportInput) {
       duplicationPenalty: Math.round(s.penalty * 100),
     })),
     groupings,
+    capabilities: capabilityRows(inventory, scores),
     consolidations: duplication.consolidations,
   };
 }
@@ -79,6 +91,14 @@ export function buildReportMarkdown(input: ReportInput): string {
     L.push(`| ${s.name} | ${s.letter} | ${s.composite} | ${s.axisA.score} | ${s.axisB.score} | ${s.axisC.score} | ${Math.round(s.penalty * 100)}% |`);
   }
   L.push('');
+
+  const caps = capabilityRows(inventory, scores);
+  if (caps.length) {
+    L.push('## Capabilities (the unit of reuse)', '');
+    L.push('| Capability | Impls | Consolidate on (canonical) |', '| --- | --- | --- |');
+    for (const c of caps) L.push(`| ${c.name}${c.domain ? ` (${c.domain})` : ''} | ${c.implementations.length} | ${c.canonical || '—'} |`);
+    L.push('');
+  }
 
   if (duplication.consolidations.length) {
     L.push('## Consolidation opportunities', '');

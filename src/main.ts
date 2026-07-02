@@ -6,8 +6,10 @@ import {
   loadInventory, upsertApi, removeApi, getApi, loadLedger, addReuseEvent, removeReuseEvent,
   loadConfig, saveConfig, weightsOf, newId,
   hasSamples, clearSamples, wasSeeded, markSeeded,
-  type ApiRecord, type ApiProperty, type Provenance, type Grouping, type Config, type ReuseEvent,
+  loadCapabilities, upsertCapability, removeCapability, getCapability, detachApiFromCapabilities,
+  type ApiRecord, type ApiProperty, type Provenance, type Grouping, type Config, type ReuseEvent, type Capability,
 } from './storage';
+import { suggestName, pickCanonical } from './capabilities';
 import { PRESET_SETS, loadPresetSet } from './presets';
 import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
@@ -485,7 +487,7 @@ function renderInventory() {
       showProvenance(); renderProps(); renderInventory();
     });
     li.querySelector<HTMLButtonElement>('.store-del')?.addEventListener('click', () => {
-      removeApi(id); if (id === activeId) activeId = null; recompute(); renderInventory(); populateLedgerApis();
+      removeApi(id); detachApiFromCapabilities(id); if (id === activeId) activeId = null; recompute(); renderInventory(); populateLedgerApis();
     });
   });
 }
@@ -634,6 +636,20 @@ function renderReport() {
       <div class="stat"><span class="stat-n">${j.summary.duplicateSchemas}</span><span class="stat-l">dup schemas</span></div>
     </div>
     ${groupTable('org')}${groupTable('team')}${groupTable('domain')}
+    ${(() => {
+      const caps = loadCapabilities();
+      if (!caps.length) return '';
+      const dup = caps.filter((c) => capMembers(c).length > 1);
+      const rows = caps.map((c) => {
+        const members = capMembers(c);
+        const canonId = (c.canonicalId && members.some((m) => m.id === c.canonicalId)) ? c.canonicalId : pickCanonical(members.map((m) => m.id), scores);
+        const canon = members.find((m) => m.id === canonId);
+        return `<tr><td>${esc(c.name)}</td><td>${members.length}</td><td>${esc(canon?.name || '—')}${canon && scoreFor(canon.id) ? ` <span class="${gradeClass(scoreFor(canon.id)!.letter)}">${scoreFor(canon.id)!.letter}</span>` : ''}</td></tr>`;
+      }).join('');
+      return `<h3>Capabilities <span class="muted small">(${caps.length}, ${dup.length} with duplication)</span></h3>
+        <p class="src-note">Each capability is the unit of reuse; more than one implementation is duplication to consolidate. Manage in the Capabilities tab.</p>
+        <table class="scorecard"><thead><tr><th>Capability</th><th>Impls</th><th>Consolidate on (canonical)</th></tr></thead><tbody>${rows}</tbody></table>`;
+    })()}
     <h3>Per-API grades &amp; operational metadata</h3>
     <p class="src-note">Solid chips are properties the API has (× to remove). Ghost chips are gaps — click one to add it.</p>
     <div class="api-cards">
@@ -734,6 +750,98 @@ $('#ledger-add').addEventListener('click', () => {
   renderLedger();
 });
 
+// ---- capabilities (the unit of reuse) ---------------------------------------
+const capMembers = (cap: Capability): ApiRecord[] => cap.apiIds.map((id) => getApi(id)).filter(Boolean) as ApiRecord[];
+
+function renderCapabilities() {
+  const caps = loadCapabilities();
+  $('#cap-count').textContent = String(caps.length);
+  const inv = loadInventory();
+  const body = $('#capabilities-body');
+  if (!caps.length) { body.innerHTML = '<p class="store-empty">No capabilities yet — add one above, or hit <strong>🧠 Suggest</strong> to derive them from clusters of similar APIs.</p>'; return; }
+  body.innerHTML = caps.map((cap) => {
+    const members = capMembers(cap);
+    const canonicalId = (cap.canonicalId && members.some((m) => m.id === cap.canonicalId)) ? cap.canonicalId : pickCanonical(members.map((m) => m.id), scores);
+    const canon = members.find((m) => m.id === canonicalId);
+    const canonScore = canon ? scoreFor(canon.id) : undefined;
+    const n = members.length;
+    const memberRows = members.map((m) => {
+      const s = scoreFor(m.id);
+      const isCanon = m.id === canonicalId;
+      return `<li data-api="${m.id}">
+        <span class="${gradeClass(s?.letter || 'F')}">${s ? s.composite : '—'}</span>
+        <span class="store-name">${isCanon ? '★ ' : ''}${esc(m.name)}</span>
+        <button class="cap-canon${isCanon ? ' on' : ''}" type="button" title="Set as canonical — the one to reuse">${isCanon ? 'canonical' : 'make canonical'}</button>
+        <button class="cap-remove" type="button" title="Remove from capability">&times;</button>
+      </li>`;
+    }).join('');
+    const options = inv.filter((a) => !cap.apiIds.includes(a.id)).map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    return `<div class="cap-card" data-cap="${cap.id}">
+      <div class="cap-head">
+        <span class="cap-name">${esc(cap.name)}</span>
+        ${cap.domain ? `<span class="muted small">${esc(cap.domain)}</span>` : ''}
+        <span class="cap-badge">${n} impl${n === 1 ? '' : 's'}</span>
+        <button class="cap-del" type="button" title="Delete capability (APIs are kept)">Delete</button>
+      </div>
+      ${n > 1 ? `<p class="cap-conso"><strong>${n} implementations</strong> — consolidate on <strong>${esc(canon?.name || '—')}</strong>${canonScore ? ` (grade ${canonScore.letter})` : ''}. Retiring the other ${n - 1} removes this duplication.</p>` : ''}
+      <ul class="cap-members">${memberRows}</ul>
+      <div class="cap-assign">
+        <select class="cap-assign-select">${options || '<option value="">— all APIs assigned —</option>'}</select>
+        <button class="cap-assign-btn" type="button">Assign API</button>
+      </div>
+    </div>`;
+  }).join('');
+  body.querySelectorAll<HTMLElement>('.cap-card').forEach((card) => {
+    const capId = card.dataset.cap!;
+    const mutate = (fn: (c: Capability) => void) => { const c = getCapability(capId); if (!c) return; fn(c); upsertCapability(c); renderCapabilities(); };
+    card.querySelector<HTMLButtonElement>('.cap-del')?.addEventListener('click', () => { if (window.confirm('Delete this capability? (The APIs are not deleted.)')) { removeCapability(capId); renderCapabilities(); } });
+    card.querySelector<HTMLButtonElement>('.cap-assign-btn')?.addEventListener('click', () => {
+      const apiId = card.querySelector<HTMLSelectElement>('.cap-assign-select')!.value;
+      if (apiId) mutate((c) => { if (!c.apiIds.includes(apiId)) c.apiIds.push(apiId); });
+    });
+    card.querySelectorAll<HTMLLIElement>('li[data-api]').forEach((li) => {
+      const apiId = li.dataset.api!;
+      li.querySelector<HTMLButtonElement>('.cap-canon')?.addEventListener('click', () => mutate((c) => { c.canonicalId = apiId; }));
+      li.querySelector<HTMLButtonElement>('.cap-remove')?.addEventListener('click', () => mutate((c) => { c.apiIds = c.apiIds.filter((x) => x !== apiId); if (c.canonicalId === apiId) c.canonicalId = undefined; }));
+    });
+  });
+}
+$('#cap-add').addEventListener('click', () => {
+  const name = $<HTMLInputElement>('#cap-name').value.trim();
+  if (!name) return;
+  const domain = $<HTMLInputElement>('#cap-domain').value.trim() || undefined;
+  upsertCapability({ id: newId(), name, domain, apiIds: [], createdAt: Date.now() });
+  $<HTMLInputElement>('#cap-name').value = ''; $<HTMLInputElement>('#cap-domain').value = '';
+  renderCapabilities();
+});
+// Derive capabilities from semantic clusters of similar APIs (skips APIs already
+// in a capability). Each cluster of 2+ becomes a suggested capability.
+async function suggestCapabilities() {
+  const inv = loadInventory();
+  if (inv.length < 2) { status('Add at least two APIs first.', false); return; }
+  status('Clustering similar APIs…');
+  try {
+    const vecs = await inventoryVectors((m) => status(m));
+    const assigned = new Set(loadCapabilities().flatMap((c) => c.apiIds));
+    const ids = [...vecs.keys()].filter((id) => !assigned.has(id));
+    const TH = 0.7, used = new Set<string>();
+    let created = 0;
+    for (const id of ids) {
+      if (used.has(id)) continue;
+      const cluster = [id];
+      for (const other of ids) { if (other === id || used.has(other)) continue; if (cosine(vecs.get(id)!, vecs.get(other)!) >= TH) cluster.push(other); }
+      if (cluster.length < 2) continue;
+      cluster.forEach((x) => used.add(x));
+      const canonical = pickCanonical(cluster, scores);
+      upsertCapability({ id: newId(), name: suggestName(cluster.map((x) => getApi(x)?.name || '')), domain: getApi(canonical || cluster[0])?.grouping.domain, apiIds: cluster, canonicalId: canonical, createdAt: Date.now() });
+      created++;
+    }
+    status(created ? `Suggested ${created} capabilit${created === 1 ? 'y' : 'ies'} from semantic clusters — rename/adjust as needed.` : 'No new clusters (APIs already grouped or too dissimilar).');
+    renderCapabilities();
+  } catch (e) { status(`Suggest failed: ${e instanceof Error ? e.message : String(e)}`, false); }
+}
+$('#cap-suggest').addEventListener('click', suggestCapabilities);
+
 // ---- rubric -----------------------------------------------------------------
 function renderRubric() {
   $('#rubric-body').innerHTML = `
@@ -761,8 +869,9 @@ function renderRubric() {
 // ---- tabs -------------------------------------------------------------------
 function switchTab(name: string) {
   document.querySelectorAll<HTMLButtonElement>('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  for (const id of ['inventory', 'report', 'ledger', 'rubric', 'about', 'config']) ($('#tab-' + id) as HTMLElement).hidden = id !== name;
+  for (const id of ['inventory', 'report', 'capabilities', 'ledger', 'rubric', 'about', 'config']) ($('#tab-' + id) as HTMLElement).hidden = id !== name;
   if (name === 'report') renderReport();
+  if (name === 'capabilities') renderCapabilities();
   if (name === 'ledger') { populateLedgerApis(); renderLedger(); }
   if (name === 'rubric') renderRubric();
   if (name === 'about') renderAbout();
@@ -794,6 +903,7 @@ function renderAbout() {
     <ul>
       <li><strong>Intent search</strong> (Inventory tab) — type what you're about to build; the app surfaces existing APIs that already do it, <em>before</em> a team reinvents it. Toggle <strong>🧠</strong> for <strong>semantic</strong> match — a small model runs in your browser to find APIs by meaning, not just keywords.</li>
       <li><strong>Semantic duplicates</strong> (Report tab, 🧠) — finds the same capability under different names and paths (e.g. <code>createOrder</code> ≈ <code>POST /purchase</code>), which keyword/path matching misses.</li>
+      <li><strong>Capabilities</strong> (Capabilities tab) — define the <em>unit of reuse</em>: a named business function that N APIs implement. Pick the canonical one to standardize on, or hit <strong>🧠 Suggest</strong> to derive capabilities from semantic clusters. This is where "three teams built this" becomes "one capability, consolidate here."</li>
       <li><strong>Report</strong> — an org scorecard with per-team/domain grades, duplication hotspots, and consolidation opportunities; export as Markdown or JSON, or publish to Confluence via the helper.</li>
       <li><strong>Reuse ledger</strong> — record when a team adopts an existing API instead of building new, so reuse can actually be reported, not just assumed.</li>
       <li><strong>Tune the definition</strong> — reuse means something a little different in every org, so the scoring weights are yours to adjust in Config.</li>
@@ -883,6 +993,7 @@ if (loadInventory().length === 0 && !wasSeeded()) {
 }
 updateSamplesBar();
 renderProps();
+$('#cap-count').textContent = String(loadCapabilities().length);
 showProvenance();
 
 initEngage(() => {
