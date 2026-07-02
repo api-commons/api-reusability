@@ -28,6 +28,16 @@ export interface ApiProperty {
   url: string;
 }
 
+// Demand / adoption signal — is this API actually being reused? (vs. the score,
+// which measures reusability *potential*). Sourced from gateway/APM usage.
+export interface Demand {
+  consumers?: number; // distinct clients/apps/keys calling it
+  calls?: number; // request volume over the period
+  period?: string; // e.g. "30d"
+  source?: string; // where it came from (kong, datadog, …)
+  at?: number;
+}
+
 // One discovered API in the inventory. `openapi` is the normalized spec text
 // (from apis.io, GitHub, a HAR synthesis, or the helper bundle). `apisjson` is
 // the optional apis.json entry describing it (metadata richness / Axis B).
@@ -37,6 +47,7 @@ export interface ApiRecord {
   lang: 'yaml' | 'json';
   openapi: string; // the OpenAPI document text
   properties?: ApiProperty[]; // operational APIs.json properties (docs/login/signup/sandbox/…)
+  demand?: Demand; // adoption signal (consumers / call volume)
   apisjson?: string; // legacy: raw apis.json fragment (still read on import for back-compat)
   grouping: Grouping;
   provenance: Provenance;
@@ -141,6 +152,26 @@ export function upsertApi(a: ApiRecord) {
 }
 export const removeApi = (id: string) => saveInventory(loadInventory().filter((a) => a.id !== id));
 export const getApi = (id: string) => loadInventory().find((a) => a.id === id);
+
+// Set an API's demand signal.
+export function setDemand(apiId: string, d: Demand) {
+  const rec = getApi(apiId);
+  if (!rec) return;
+  rec.demand = { ...rec.demand, ...d, at: Date.now() };
+  upsertApi(rec);
+}
+// Apply a list of demand records to the inventory by matching API name.
+export function applyDemandByName(list: Array<{ name: string; consumers?: number; calls?: number; period?: string; source?: string }>): number {
+  const byName = new Map(loadInventory().map((a) => [a.name.toLowerCase(), a.id]));
+  let n = 0;
+  for (const d of list) {
+    const id = byName.get(String(d.name || '').toLowerCase());
+    if (!id) continue;
+    setDemand(id, { consumers: d.consumers, calls: d.calls, period: d.period, source: d.source });
+    n++;
+  }
+  return n;
+}
 
 // Sample-data helpers. Sample records carry provenance.source === 'sample' so
 // they can be cleared or reloaded independently of anything the user adds.

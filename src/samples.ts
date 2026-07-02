@@ -6,9 +6,23 @@
 //
 // Specs are generated from compact descriptors so 25 realistic docs stay tidy.
 import { stringify } from 'yaml';
-import type { Grouping, ApiProperty } from './storage';
+import type { Grouping, ApiProperty, Demand } from './storage';
 
-export interface Sample { name: string; grouping: Grouping; openapi: string; properties: ApiProperty[] }
+export interface Sample { name: string; grouping: Grouping; openapi: string; properties: ApiProperty[]; demand?: Demand }
+
+// Demand for a few samples so the demo shows adoption-driven canonical selection
+// (the most-USED implementation wins, even if another scores higher) and fills
+// the potential × adoption quadrant. Accounts is heavily used but mid-quality;
+// Identity is high-quality but barely used → the canonical becomes Accounts.
+const DEMAND: Record<string, Demand> = {
+  'Accounts API': { consumers: 42, calls: 1_800_000, period: '30d', source: 'sample' },
+  'Identity API': { consumers: 6, calls: 90_000, period: '30d', source: 'sample' },
+  'Admin Console API': { consumers: 2, calls: 12_000, period: '30d', source: 'sample' },
+  'Payments API': { consumers: 28, calls: 950_000, period: '30d', source: 'sample' },
+  'Billing API': { consumers: 9, calls: 210_000, period: '30d', source: 'sample' },
+  'Orders API': { consumers: 15, calls: 400_000, period: '30d', source: 'sample' },
+  'Catalog API': { consumers: 3, calls: 20_000, period: '30d', source: 'sample' },
+};
 
 type Quality = 'high' | 'mid' | 'low';
 
@@ -179,4 +193,5 @@ export const SAMPLES: Sample[] = DESCS.map((d) => ({
   openapi: buildOpenApi(d),
   // operational-property richness tracks quality: high → full, mid → partial, low → none
   properties: d.quality === 'high' ? buildProps(d, 'full') : d.quality === 'mid' ? buildProps(d, 'partial') : [],
+  demand: DEMAND[d.title],
 }));

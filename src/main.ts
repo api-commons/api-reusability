@@ -7,9 +7,10 @@ import {
   loadConfig, saveConfig, weightsOf, newId,
   hasSamples, clearSamples, wasSeeded, markSeeded,
   loadCapabilities, upsertCapability, removeCapability, getCapability, detachApiFromCapabilities,
+  setDemand, applyDemandByName,
   type ApiRecord, type ApiProperty, type Provenance, type Grouping, type Config, type ReuseEvent, type Capability,
 } from './storage';
-import { suggestName, pickCanonical } from './capabilities';
+import { suggestName, pickCanonical, demandMagnitude } from './capabilities';
 import { PRESET_SETS, loadPresetSet } from './presets';
 import { ARTIFACTS, artifactById, type ArtifactType } from './artifacts';
 import { searchSource, loadHit, enabledSources, type Hit, type SourceId, type Tokens } from './sources';
@@ -50,6 +51,16 @@ function downloadFile(name: string, text: string, mime = 'application/yaml') {
 }
 const status = (t: string, ok = true) => { const el = $('#save-status'); el.textContent = t; el.style.color = ok ? 'var(--muted)' : '#f14c4c'; };
 const gradeClass = (l: string) => `grade grade-${l}`;
+// Demand helpers — magnitude map for canonical selection, and a display label.
+const demandMap = () => new Map(loadInventory().map((a) => [a.id, demandMagnitude(a.demand)]));
+const fmtNum = (n: number) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n));
+function demandLabel(d?: { consumers?: number; calls?: number; period?: string }): string {
+  if (!d || (!d.consumers && !d.calls)) return '';
+  const parts: string[] = [];
+  if (d.consumers) parts.push(`👥 ${fmtNum(d.consumers)}`);
+  if (d.calls) parts.push(`${fmtNum(d.calls)} calls${d.period ? `/${d.period}` : ''}`);
+  return parts.join(' · ');
+}
 
 // current scores cache (recomputed on inventory change)
 let scores: ApiScore[] = [];
@@ -303,22 +314,33 @@ $<HTMLInputElement>('#import-file').addEventListener('change', async (e) => {
   // 1) reusability bundle (from the helper or an Export bundle) — full round-trip
   if (isObject(doc) && Array.isArray(doc.apis) && doc.apis.some((a: any) => a.openapi)) {
     let n = 0;
+    const demandList: any[] = Array.isArray(doc.demand) ? [...doc.demand] : [];
     for (const a of doc.apis) {
       if (!a.openapi) continue;
       const props = resolveProperties({
         properties: Array.isArray(a.properties) ? a.properties : undefined,
         apisjson: a.apisjson ? (typeof a.apisjson === 'string' ? a.apisjson : stringifyYaml(a.apisjson)) : undefined,
       });
+      const name = a.name || 'imported';
       upsertApi({
-        id: newId(), name: a.name || 'imported', lang: a.lang === 'json' ? 'json' : 'yaml',
+        id: newId(), name, lang: a.lang === 'json' ? 'json' : 'yaml',
         openapi: typeof a.openapi === 'string' ? a.openapi : stringifyYaml(a.openapi),
         properties: props,
         grouping: a.grouping || {}, provenance: a.provenance || { source: 'helper', gateway: a.gateway }, savedAt: Date.now(),
       });
+      if (a.demand) demandList.push({ name, ...a.demand });
       n++;
     }
+    const dn = applyDemandByName(demandList);
     recompute(); renderInventory(); switchTab('inventory');
-    status(`Imported ${n} API${n === 1 ? '' : 's'} from bundle.`);
+    status(`Imported ${n} API${n === 1 ? '' : 's'} from bundle${dn ? ` · demand for ${dn}` : ''}.`);
+    return;
+  }
+  // 1b) demand-only bundle — match to existing inventory by name
+  if (isObject(doc) && Array.isArray(doc.demand) && doc.demand.length && !(Array.isArray(doc.apis) && doc.apis.length)) {
+    const dn = applyDemandByName(doc.demand);
+    recompute(); renderInventory(); switchTab('inventory');
+    status(`Applied demand to ${dn} API${dn === 1 ? '' : 's'} (matched by name).`);
     return;
   }
   // 2) otherwise treat as a single spec to inspect/add
@@ -382,6 +404,25 @@ function renderProps() {
   const tone = (n: number) => 'axisb-readout ' + gradeClass(n >= 80 ? 'A' : n >= 60 ? 'C' : 'F').split(' ')[1];
   const bel = $('#axisb-readout'); bel.textContent = `B ${b.score}`; bel.className = tone(b.score);
   const cel = $('#axisc-readout'); cel.textContent = `C ${c.score}`; cel.className = tone(c.score);
+  // demand inputs reflect the active API
+  const d = (activeId ? getApi(activeId)?.demand : undefined) || {};
+  $<HTMLInputElement>('#demand-consumers').value = d.consumers != null ? String(d.consumers) : '';
+  $<HTMLInputElement>('#demand-calls').value = d.calls != null ? String(d.calls) : '';
+  $<HTMLInputElement>('#demand-period').value = d.period || '';
+}
+// Demand editor — writes to the active API (adoption signal, not part of the grade).
+for (const id of ['demand-consumers', 'demand-calls', 'demand-period']) {
+  $<HTMLInputElement>('#' + id).addEventListener('input', () => {
+    if (!activeId) return;
+    const num = (v: string) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : undefined; };
+    setDemand(activeId, {
+      consumers: num($<HTMLInputElement>('#demand-consumers').value),
+      calls: num($<HTMLInputElement>('#demand-calls').value),
+      period: $<HTMLInputElement>('#demand-period').value.trim() || undefined,
+      source: 'manual',
+    });
+    renderInventory();
+  });
 }
 // If editing a saved API, persist property edits immediately and re-score.
 function persistProps() {
@@ -466,7 +507,7 @@ function renderInventory() {
         return `<li class="${a.id === activeId ? 'active' : ''}" data-id="${a.id}">
           <span class="${gradeClass(s?.letter || 'F')}" title="composite reusability">${s ? s.composite : '—'}</span>
           <span class="store-name" title="${esc(a.name)}">${esc(a.name)}</span>
-          <span class="store-meta">${semOn ? `<strong class="match">${Math.round((semanticScores!.get(a.id) ?? 0) * 100)}% match</strong> · ` : ''}${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'} · C ${s?.axisC.score ?? '—'}</span>
+          <span class="store-meta">${semOn ? `<strong class="match">${Math.round((semanticScores!.get(a.id) ?? 0) * 100)}% match</strong> · ` : ''}${esc(a.provenance.source)}${g ? ` · ${esc(g)}` : ''} · A ${s?.axisA.score ?? '—'} · B ${s?.axisB.score ?? '—'} · C ${s?.axisC.score ?? '—'}${demandLabel(a.demand) ? ` · <span class="demand">${demandLabel(a.demand)}</span>` : ''}</span>
           <button class="store-btn" type="button">Load</button>
           <button class="store-del" type="button" title="Remove">&times;</button>
           <div class="inv-props prop-chips">${present}${missing}</div>
@@ -596,7 +637,7 @@ async function seedSet(setId: string, replace: boolean) {
   for (const s of items) {
     const prov: Provenance = { source: 'sample', url: `preset:${setId}:${setSlug(s.name)}` };
     if (seen.has(provKey(prov))) { skipped++; continue; }
-    upsertApi({ id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, properties: s.properties, grouping: s.grouping, provenance: prov, savedAt: Date.now() });
+    upsertApi({ id: newId(), name: s.name, lang: 'yaml', openapi: s.openapi, properties: s.properties, demand: s.demand, grouping: s.grouping, provenance: prov, savedAt: Date.now() });
     seen.add(provKey(prov));
     added++;
   }
@@ -642,13 +683,30 @@ function renderReport() {
       const dup = caps.filter((c) => capMembers(c).length > 1);
       const rows = caps.map((c) => {
         const members = capMembers(c);
-        const canonId = (c.canonicalId && members.some((m) => m.id === c.canonicalId)) ? c.canonicalId : pickCanonical(members.map((m) => m.id), scores);
+        const canonId = (c.canonicalId && members.some((m) => m.id === c.canonicalId)) ? c.canonicalId : pickCanonical(members.map((m) => m.id), scores, demandMap());
         const canon = members.find((m) => m.id === canonId);
         return `<tr><td>${esc(c.name)}</td><td>${members.length}</td><td>${esc(canon?.name || '—')}${canon && scoreFor(canon.id) ? ` <span class="${gradeClass(scoreFor(canon.id)!.letter)}">${scoreFor(canon.id)!.letter}</span>` : ''}</td></tr>`;
       }).join('');
       return `<h3>Capabilities <span class="muted small">(${caps.length}, ${dup.length} with duplication)</span></h3>
         <p class="src-note">Each capability is the unit of reuse; more than one implementation is duplication to consolidate. Manage in the Capabilities tab.</p>
         <table class="scorecard"><thead><tr><th>Capability</th><th>Impls</th><th>Consolidate on (canonical)</th></tr></thead><tbody>${rows}</tbody></table>`;
+    })()}
+    ${(() => {
+      const withDemand = inv.filter((a) => demandMagnitude(a.demand) > 0);
+      if (!withDemand.length) return '<p class="src-note">Add <strong>demand</strong> (adoption) data — per-API in the editor, or Import a demand bundle from your gateway/APM — to see the potential × adoption quadrant: which APIs to reuse, promote, fix, or retire.</p>';
+      const used = (a: ApiRecord) => demandMagnitude(a.demand) > 0;
+      const good = (a: ApiRecord) => (scoreFor(a.id)?.composite ?? 0) >= 70;
+      const q = { exemplar: [] as ApiRecord[], loadbearing: [] as ApiRecord[], underused: [] as ApiRecord[], retire: [] as ApiRecord[] };
+      for (const a of inv) { const u = used(a), gd = good(a); (gd && u ? q.exemplar : gd ? q.underused : u ? q.loadbearing : q.retire).push(a); }
+      const box = (title: string, sub: string, arr: ApiRecord[], cls: string) => `<div class="quad ${cls}"><div class="quad-h"><strong>${arr.length}</strong> ${title}</div><div class="quad-sub">${sub}</div>${arr.length ? `<div class="quad-names">${arr.slice(0, 4).map((a) => esc(a.name)).join(', ')}${arr.length > 4 ? ` +${arr.length - 4}` : ''}</div>` : ''}</div>`;
+      return `<h3>Proven reuse &amp; risk <span class="muted small">(potential × adoption)</span></h3>
+        <p class="src-note">Grade measures reusability <em>potential</em>; demand measures actual <em>adoption</em>. "Used" = has demand data &gt; 0.</p>
+        <div class="quad-grid">
+          ${box('Exemplars', 'well-built &amp; used — reuse these', q.exemplar, 'q-good')}
+          ${box('Load-bearing', 'weak but used — fix, can\'t kill', q.loadbearing, 'q-warn')}
+          ${box('Underused', 'well-built, no adoption — promote', q.underused, 'q-info')}
+          ${box('Retire candidates', 'weak &amp; unused — deprecate', q.retire, 'q-bad')}
+        </div>`;
     })()}
     <h3>Per-API grades &amp; operational metadata</h3>
     <p class="src-note">Solid chips are properties the API has (× to remove). Ghost chips are gaps — click one to add it.</p>
@@ -662,7 +720,7 @@ function renderReport() {
           <div class="api-card-head">
             <span class="${gradeClass(s.letter)}">${s.letter}</span>
             <span class="api-card-name" title="${esc(s.name)}">${esc(s.name)}</span>
-            <span class="api-card-stats muted small">reuse ${s.composite} · A ${s.axisA.score} · B ${s.axisB.score} · C ${s.axisC.score} · dup ${Math.round(s.penalty * 100)}%</span>
+            <span class="api-card-stats muted small">reuse ${s.composite} · A ${s.axisA.score} · B ${s.axisB.score} · C ${s.axisC.score} · dup ${Math.round(s.penalty * 100)}%${demandLabel(rec?.demand) ? ` · <span class="demand">${demandLabel(rec?.demand)}</span>` : ''}</span>
           </div>
           <div class="prop-chips">${present}${missing}</div>
         </div>`;
@@ -761,16 +819,18 @@ function renderCapabilities() {
   if (!caps.length) { body.innerHTML = '<p class="store-empty">No capabilities yet — add one above, or hit <strong>🧠 Suggest</strong> to derive them from clusters of similar APIs.</p>'; return; }
   body.innerHTML = caps.map((cap) => {
     const members = capMembers(cap);
-    const canonicalId = (cap.canonicalId && members.some((m) => m.id === cap.canonicalId)) ? cap.canonicalId : pickCanonical(members.map((m) => m.id), scores);
+    const canonicalId = (cap.canonicalId && members.some((m) => m.id === cap.canonicalId)) ? cap.canonicalId : pickCanonical(members.map((m) => m.id), scores, demandMap());
     const canon = members.find((m) => m.id === canonicalId);
     const canonScore = canon ? scoreFor(canon.id) : undefined;
     const n = members.length;
+    const demandDriven = members.some((m) => demandMagnitude(m.demand) > 0);
     const memberRows = members.map((m) => {
       const s = scoreFor(m.id);
       const isCanon = m.id === canonicalId;
+      const dl = demandLabel(m.demand);
       return `<li data-api="${m.id}">
         <span class="${gradeClass(s?.letter || 'F')}">${s ? s.composite : '—'}</span>
-        <span class="store-name">${isCanon ? '★ ' : ''}${esc(m.name)}</span>
+        <span class="store-name">${isCanon ? '★ ' : ''}${esc(m.name)}${dl ? ` <span class="demand">${dl}</span>` : ''}</span>
         <button class="cap-canon${isCanon ? ' on' : ''}" type="button" title="Set as canonical — the one to reuse">${isCanon ? 'canonical' : 'make canonical'}</button>
         <button class="cap-remove" type="button" title="Remove from capability">&times;</button>
       </li>`;
@@ -783,7 +843,7 @@ function renderCapabilities() {
         <span class="cap-badge">${n} impl${n === 1 ? '' : 's'}</span>
         <button class="cap-del" type="button" title="Delete capability (APIs are kept)">Delete</button>
       </div>
-      ${n > 1 ? `<p class="cap-conso"><strong>${n} implementations</strong> — consolidate on <strong>${esc(canon?.name || '—')}</strong>${canonScore ? ` (grade ${canonScore.letter})` : ''}. Retiring the other ${n - 1} removes this duplication.</p>` : ''}
+      ${n > 1 ? `<p class="cap-conso"><strong>${n} implementations</strong> — consolidate on <strong>${esc(canon?.name || '—')}</strong>${canonScore ? ` (grade ${canonScore.letter})` : ''}${!cap.canonicalId && demandDriven ? ' — the most-used' : ''}. Retiring the other ${n - 1} removes this duplication.</p>` : ''}
       <ul class="cap-members">${memberRows}</ul>
       <div class="cap-assign">
         <select class="cap-assign-select">${options || '<option value="">— all APIs assigned —</option>'}</select>
@@ -832,7 +892,7 @@ async function suggestCapabilities() {
       for (const other of ids) { if (other === id || used.has(other)) continue; if (cosine(vecs.get(id)!, vecs.get(other)!) >= TH) cluster.push(other); }
       if (cluster.length < 2) continue;
       cluster.forEach((x) => used.add(x));
-      const canonical = pickCanonical(cluster, scores);
+      const canonical = pickCanonical(cluster, scores, demandMap());
       upsertCapability({ id: newId(), name: suggestName(cluster.map((x) => getApi(x)?.name || '')), domain: getApi(canonical || cluster[0])?.grouping.domain, apiIds: cluster, canonicalId: canonical, createdAt: Date.now() });
       created++;
     }

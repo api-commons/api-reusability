@@ -282,3 +282,23 @@ ul.conso li { overflow-wrap: anywhere; }
 .cap-assign select { flex: 1 1 auto; min-width: 0; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; font-size: 0.82rem; }
 .cap-assign button { flex: 0 0 auto; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; }
 .cap-assign button:hover { border-color: var(--accent); }
+
+/* demand / adoption signal */
+.demand { color: #3fb950; }
+.demand-edit { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.55rem; flex-wrap: wrap; }
+.demand-edit .src-hint { flex: 0 0 auto; }
+.demand-edit input { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 7px; font-size: 0.8rem; width: 90px; }
+.demand-edit input.grp { width: 66px; }
+.demand-edit input:focus { outline: none; border-color: var(--accent); }
+
+/* potential × adoption quadrant */
+.quad-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.3rem 0 0.6rem; }
+.quad { border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px; padding: 0.5rem 0.6rem; }
+.quad-h { font-size: 0.9rem; color: var(--fg); }
+.quad-h strong { font-size: 1.15rem; }
+.quad-sub { font-size: 0.72rem; color: var(--muted); margin: 0.1rem 0 0.3rem; }
+.quad-names { font-size: 0.76rem; color: #cdd9e5; overflow: hidden; text-overflow: ellipsis; }
+.quad.q-good { border-left-color: #3fb950; }
+.quad.q-warn { border-left-color: #f0883e; }
+.quad.q-info { border-left-color: #3794ff; }
+.quad.q-bad { border-left-color: #f14c4c; }

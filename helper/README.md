@@ -75,6 +75,8 @@ Each API is scored and added to the inventory.
 | `--42crunch` | 42Crunch API Security | each catalogued API's OpenAPI |
 | `--datadog` | Datadog Software Catalog | observed `kind: API` entities (enrich with their OpenAPI) |
 | `--discovery` | **Any shadow-API scanner** | a JSON list `[{name, openapi\|openapiUrl}]` exported by Salt / Noname (Akamai) / Traceable / etc. — `--discovery-url <url>` or a file |
+| **Demand / adoption** | | |
+| `--demand` | **Any usage source** (gateway analytics, Datadog/New Relic, access-log rollups) | a JSON list `[{name, consumers, calls, period}]` — `DEMAND_URL` or `--demand-url <url\|file>`. The app matches records to inventory APIs by name and uses them to pick the *most-used* implementation as a capability's canonical |
 
 ## Publish a report to Confluence
 

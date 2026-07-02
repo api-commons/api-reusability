@@ -74,6 +74,12 @@
               <button id="prop-add" class="btn-accent" type="button" title="Add this property">Add</button>
             </div>
             <div id="prop-chips" class="prop-chips"></div>
+            <div class="demand-edit" title="Demand / adoption — is this API actually being reused? (from gateway/APM usage, or enter manually). Separate from the reusability grade.">
+              <span class="src-hint">Demand (adoption):</span>
+              <input id="demand-consumers" type="number" min="0" placeholder="consumers" />
+              <input id="demand-calls" type="number" min="0" placeholder="calls" />
+              <input id="demand-period" class="grp" placeholder="period" />
+            </div>
             <div class="meta-foot">
               <button id="download-api-apisjson" type="button" title="Download this single API wrapped as APIs.json">Download APIs.json</button>
             </div>

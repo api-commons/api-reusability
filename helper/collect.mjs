@@ -20,7 +20,7 @@ let fileCfg = {};
 try { fileCfg = JSON.parse(readFileSync(new URL('./helper-config.json', import.meta.url), 'utf8')); } catch { /* optional */ }
 const cfg = (k, envKey) => process.env[envKey] ?? fileCfg[k];
 
-const bundle = { format: 'api-reusability-bundle', generated: new Date().toISOString(), apis: [] };
+const bundle = { format: 'api-reusability-bundle', generated: new Date().toISOString(), apis: [], demand: [] };
 const GATEWAYS = new Set(['aws', 'kong', 'tyk', 'apigee', 'azure-apim', 'mulesoft']);
 // openapi may be a string or an object; grouping is {org,team,domain}
 function add(name, openapi, source, grouping = {}) {
@@ -318,6 +318,26 @@ async function collectDiscovery() {
   ok(`Discovery: ${items.length} API(s)`);
 }
 
+// ============================ DEMAND / ADOPTION =============================
+
+// Demand (adoption) — is an API actually being reused? Ingest a JSON list your
+// gateway/APM can export: [{ name, consumers, calls, period }]. The web app
+// matches these to the inventory by API name. One connector covers any source
+// (Kong/Apigee/Azure analytics, Datadog/New Relic usage, access-log rollups…).
+async function collectDemand() {
+  const url = cfg('demandUrl', 'DEMAND_URL') || val('--demand-url');
+  if (!url) return warn('Demand: set DEMAND_URL (endpoint/file returning [{name, consumers, calls, period}])');
+  const token = cfg('demandToken', 'DEMAND_TOKEN');
+  const headers = { accept: 'application/json', ...(token ? { authorization: token } : {}) };
+  const list = /^https?:/i.test(url) ? await getJson(url, headers) : JSON.parse(readFileSync(url, 'utf8'));
+  const items = Array.isArray(list) ? list : list?.demand ?? [];
+  for (const d of items) {
+    if (!d?.name) continue;
+    bundle.demand.push({ name: String(d.name), consumers: d.consumers, calls: d.calls, period: d.period, source: d.source || 'demand' });
+  }
+  ok(`Demand: ${items.length} record(s)`);
+}
+
 // ============================ CONFLUENCE PUBLISH =============================
 
 async function publishConfluence(mdFile, title) {
@@ -346,6 +366,8 @@ const CONNECTORS = [
   { flag: '--k8s', run: collectK8s }, { flag: '--kafka-registry', run: collectKafkaRegistry },
   // security & observability
   { flag: '--42crunch', run: collect42Crunch }, { flag: '--datadog', run: collectDatadog }, { flag: '--discovery', run: collectDiscovery },
+  // demand / adoption
+  { flag: '--demand', run: collectDemand },
 ];
 
 const trim = (u) => String(u).replace(/\/$/, '');
