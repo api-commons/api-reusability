@@ -671,7 +671,7 @@ function renderReport() {
       <div class="stat"><span class="stat-n">${j.summary.apis}</span><span class="stat-l">APIs</span></div>
       <div class="stat"><span class="stat-n">${j.summary.avgComposite}</span><span class="stat-l">avg reuse</span></div>
       <div class="stat"><span class="stat-n">${j.summary.avgDesign}</span><span class="stat-l">A design</span></div>
-      <div class="stat"><span class="stat-n">${j.summary.avgOperational}</span><span class="stat-l">B operational</span></div>
+      <div class="stat"><span class="stat-n">${j.summary.avgOperational}</span><span class="stat-l">B ops</span></div>
       <div class="stat"><span class="stat-n">${j.summary.avgComposability}</span><span class="stat-l">C compose</span></div>
       <div class="stat"><span class="stat-n">${j.summary.pathOverlapRate}%</span><span class="stat-l">path overlap</span></div>
       <div class="stat"><span class="stat-n">${j.summary.duplicateSchemas}</span><span class="stat-l">dup schemas</span></div>
