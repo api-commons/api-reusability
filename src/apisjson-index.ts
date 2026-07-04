@@ -79,7 +79,6 @@ export function buildIndex(inv: ApiRecord[], scores: ApiScore[], collectionName 
     created: today,
     modified: today,
     apis: inv.map((a) => entryFor(a, scoreById.get(a.id))),
-    rules: [{ type: 'SpectralRules', name: 'API Commons Rulesets', url: 'https://apicommons.org/rulesets/' }],
   };
   // Capability layer — the named units of reuse and their implementations.
   const nameById = new Map(inv.map((a) => [a.id, a.name]));

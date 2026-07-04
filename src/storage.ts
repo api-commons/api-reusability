@@ -1,6 +1,6 @@
 // Client-side persistence: discovered API inventory (scored) + config.
 // No backend — everything lives in the browser's localStorage, same model as
-// api-discovery / spotlight-validator.
+// api-discovery.
 
 export interface Provenance {
   source: 'apis.io' | 'github' | 'gitlab' | 'bitbucket' | 'swaggerhub' | 'postman' | 'har' | 'helper' | 'url' | 'manual' | 'sample';
