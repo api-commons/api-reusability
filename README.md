@@ -2,7 +2,7 @@
 
 A browser-first tool for assessing **how reusable the APIs across your organization
 really are** — modeled on [API Discovery](https://github.com/api-commons/api-discovery)
-and [Spotlight Validator](https://github.com/api-commons/spotlight-validator).
+and [API Validator](https://validator.apicommons.org).
 
 Live at **[reusability.apicommons.org](https://reusability.apicommons.org)**. Runs
 entirely in your browser — no backend, keys stay in `localStorage`.
