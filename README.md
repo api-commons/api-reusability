@@ -54,3 +54,14 @@ Grounded in what enterprise API practitioners describe as reusability: semantic
 discovery "before you go down the rabbit hole and build it from scratch," a shared
 taxonomy so teams can mark things reusable, composition of existing APIs into named
 units, and — critically — the ability to *report reuse actually happening*.
+
+## Part of API Commons
+
+An open, browser-first tool from **[API Commons](https://apicommons.org)** — free, no backend, your data stays in your browser. Browse the full set at **[apicommons.org/tools](https://apicommons.org/tools/)**.
+
+**Related tools**
+- [API Discovery](https://discovery.apicommons.org) — browser-first registry that composes the catalogs this tool scores
+- [API Documentation](https://documentation.apicommons.org) — portable HTML docs for any APIs.json
+- [API Experience](https://experience.apicommons.org) — DX/AX layer + coverage scorecard
+- [API Validator](https://validator.apicommons.org) — lint OpenAPI/AsyncAPI/Arazzo/JSON Schema in-browser
+- [Model Library](https://library.apicommons.org) — versioned model library + drift/breaking-change detection
