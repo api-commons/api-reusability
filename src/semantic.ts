@@ -11,9 +11,9 @@ let extractorPromise: Promise<any> | null = null;
 async function getExtractor(onStatus?: StatusFn) {
   if (!extractorPromise) {
     onStatus?.('Loading semantic model (~23 MB, first time only)…');
-    extractorPromise = import('@xenova/transformers').then(async (mod) => {
+    extractorPromise = import('@huggingface/transformers').then(async (mod) => {
       mod.env.allowLocalModels = false; // fetch the model from the HF CDN
-      return mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+      return mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { dtype: 'q8' });
     });
   }
   return extractorPromise;
